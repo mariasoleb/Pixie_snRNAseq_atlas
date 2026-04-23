@@ -1,0 +1,184 @@
+
+library(dplyr)
+library(AUCell)
+library(Seurat)
+
+# folder with regulons
+regulon_dir <- "regulons_list/"
+
+files <- list.files(regulon_dir, full.names = TRUE)
+
+# function to read one regulon file
+read_regulons <- function(file) {
+  
+  organ <- gsub("_regulons.tsv", "", basename(file))
+  
+  reg <- read.delim(file, header = FALSE)
+  colnames(reg) <- c("TF","cluster","targets")
+  
+  regulons <- lapply(1:nrow(reg), function(i) {
+    strsplit(reg$targets[i], ",")[[1]]
+  })
+  
+  # IMPORTANT: add organ prefix
+  names(regulons) <- paste0(
+    organ, "::", reg$TF, "-", reg$cluster
+  )
+  
+  return(regulons)
+}
+
+# read all and merge
+regulons_list <- lapply(files, read_regulons)
+
+# flatten into one list
+all_regulons <- unlist(regulons_list, recursive = FALSE)
+
+# ensure unique names
+names(all_regulons) <- make.unique(names(all_regulons))
+
+> length(all_regulons)
+[1] 1971
+> sapply(regulons_list, length)
+[1] 273   4 635 831   2 226
+
+
+seurat_obj <- readRDS("./alevin_seurat_clean/AllTissues_SCT.rds")
+
+# expression matrix
+expr <- GetAssayData(seurat_obj, slot = "data")
+
+# filter genes
+expr <- expr[rowSums(expr > 0) > 10, ]
+
+# rankings
+rankings <- AUCell_buildRankings(expr)
+
+# compute AUC for ALL regulons
+cells_auc <- AUCell_calcAUC(all_regulons, rankings)
+
+auc_matrix <- getAUC(cells_auc)
+
+# clean names
+rownames(auc_matrix) <- gsub("_", "-", rownames(auc_matrix))
+
+seurat_obj[["RegulonActivity"]] <- CreateAssayObject(data = auc_matrix)
+
+DefaultAssay(seurat_obj) <- "RegulonActivity"
+
+seurat_obj$organ_celltype <- paste(
+  seurat_obj$Tissue_Group,
+  seurat_obj$cluster_annotation,
+  sep = "__"
+)
+
+Idents(seurat_obj) <- "organ_celltype"
+
+avg_reg <- AverageExpression(
+  seurat_obj,
+  assays = "RegulonActivity"
+)$RegulonActivity
+
+# variability
+var_reg <- apply(avg_reg, 1, var)
+
+top_reg <- names(sort(var_reg, decreasing = TRUE))[1:20]
+
+heatmap_matrix <- avg_reg[top_reg, ]
+
+# scale
+heatmap_matrix <- t(scale(t(heatmap_matrix)))
+
+
+library(ComplexHeatmap)
+
+pdf("./plots_alevin/Allregulons_AllOrgans_activity.pdf", width=10, height=10)
+
+Heatmap(
+  heatmap_matrix,
+  name = "Regulon activity",
+  cluster_rows = TRUE,
+  cluster_columns = TRUE,
+  show_row_names = TRUE
+)
+
+dev.off()
+
+write.csv(heatmap_matrix, "./output_dir/AllRegulons_AllOrgans_activity.csv")
+
+saveRDS(seurat_obj, "./alevin_seurat_clean/AllTissues_AllRegulons.rds")
+
+
+seurat_obj<-readRDS("./alevin_seurat_clean/AllTissues_AllRegulons.rds")
+
+length(all_regulons)
+[1] 1971
+sapply(regulons_list, length)
+[1] 273   4 635 831   2 226
+nrow(seurat_obj[["RegulonActivity"]])
+[1] 1971
+
+
+avg_reg <- AverageExpression(
+  seurat_obj,
+  assays = "RegulonActivity"
+)$RegulonActivity
+
+
+mat <- avg_reg   # all regulons
+
+write.csv(avg_reg,"./ClusterAnnotation_alevin/AvgExpr_RegActivity.csv")
+mat <- t(scale(t(mat)))
+
+
+col_annot <- data.frame(
+  Organ = sapply(strsplit(colnames(mat), "--"), `[`, 1),
+  CellType = sapply(strsplit(colnames(mat), "--"), `[`, 2)
+)
+
+rownames(col_annot) <- colnames(mat)
+
+
+library(ComplexHeatmap)
+library(circlize)
+
+organ_colors <- setNames(
+  rainbow(length(unique(col_annot$Organ))),
+  unique(col_annot$Organ)
+)
+
+celltype_colors <- structure(
+  colorRampPalette(c("grey20","lightblue"))(length(unique(col_annot$CellType))),
+  names = unique(col_annot$CellType)
+)
+
+ha <- HeatmapAnnotation(
+  Organ = col_annot$Organ,
+  CellType = col_annot$CellType,
+  col = list(
+    Organ = organ_colors,
+    CellType = celltype_colors
+  )
+)
+
+library(ComplexHeatmap)
+library(circlize)
+
+pdf("./plots_alevin/Allregulons_AllOrgans_activity.pdf", width = 16, height = 16)
+
+Heatmap(
+  mat,                       # your full regulon activity matrix
+  name = "Regulon activity",
+  top_annotation = ha,        # attach your column annotation
+  cluster_rows = TRUE,
+  cluster_columns = TRUE,
+  show_row_names = FALSE,     # hide row labels (2000+ rows)
+  show_column_names = TRUE,   # or FALSE if too many columns
+  row_title = "Regulons",
+  use_raster = TRUE           # improves performance for big matrices
+)
+
+dev.off()
+
+write.csv(mat, "./output_dir/AllRegulons_AllOrgans_activity.csv")
+
