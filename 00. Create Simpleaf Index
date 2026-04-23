@@ -1,0 +1,35 @@
+## simpleaf alevin-fry
+
+export AF_SAMPLE_DIR=/your/directory
+#mkdir $AF_SAMPLE_DIR
+cd $AF_SAMPLE_DIR
+
+
+# define env variable
+export ALEVIN_FRY_HOME="$AF_SAMPLE_DIR/af_home2"
+
+# simpleaf configuration
+simpleaf set-paths
+
+# Increase the number of open files for piscem's intemediate files
+ulimit -n 2048
+
+# Define reference and index directories
+IDX_DIR="Alevin_ref"
+
+
+# Define the existing FASTA and GTF file paths
+FASTA_FILE="$AF_SAMPLE_DIR/ref.fasta"
+GTF_FILE="$AF_SAMPLE_DIR/ref.gtf"
+
+
+# Run simpleaf index with existing FASTA and GTF
+nohup simpleaf index \
+--use-piscem \
+--output "$IDX_DIR" \
+--fasta "$FASTA_FILE" \
+--gtf "$GTF_FILE" \
+--rlen 151 \
+--threads 8 \
+--work-dir "$AF_SAMPLE_DIR/workdir.noindex" &
+
