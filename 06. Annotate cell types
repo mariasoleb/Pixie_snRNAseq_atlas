@@ -1,0 +1,301 @@
+# Load Seurat object
+seurat_obj <- readRDS("./alevin_seurat_clean/Flower_SCT.rds")
+
+
+new.cluster.ids <- c(
+  "0" = "Vascular_Parenchyma",
+  "1" = "Pollen",
+  "2" = "Calyx",
+  "3" = "Calyptra",
+  "4" = "Calyx",
+  "5" = "Ovary",    
+  "6" = "Ovary",
+  "7" = "Xylem_Parenchyma",
+  "8" = "Ovary",
+  "9" = "Vascular_Parenchyma",
+    "10" = "Pollen",
+  "11" = "Pollen",
+  "12" = "Epidermis",
+  "13" = "Calyptra",
+  "14" = "Vascular_Parenchyma",
+  "15" = "Calyptra",    
+  "16" = "Calyptra",
+  "17" = "Calyptra",
+  "18" = "Calyx",
+  "19" = "Vascular_Parenchyma",
+    "20" = "Style",
+  "21" = "Vascular_Parenchyma",
+  "22" = "Anther",
+  "23" = "Pollen",
+  "24" = "Stigmatic_Papilla",
+  "25" = "Receptacle",    
+  "26" = "Filament",
+  "27" = "Ovary",
+  "28" = "Calyptra",
+  "29" = "Anther",
+    "30" = "Calyx",
+  "31" = "Phloem_Parenchyma",
+  "32" = "Anther",
+  "33" = "Microsporangia",
+  "34" = "Phloem_Parenchyma",
+  "35" = "Companion_Cell",    
+  "36" = "Ovary",
+  "37" = "Pollen",
+  "38" = "Calyptra",
+  "39" = "Stigma",
+    "40" = "Pollen"
+)
+
+library(Seurat)
+library(plyr)
+
+seurat_obj$cluster_annotation <- mapvalues(
+  seurat_obj$SCT_snn_res.2,
+  from = names(new.cluster.ids),
+  to = new.cluster.ids
+)
+
+Idents(seurat_obj) <- seurat_obj$cluster_annotation
+
+p1<- DimPlot(seurat_obj, reduction = 'umap', group.by = 'cluster_annotation', label=T)
+
+pdf("./plots_alevin/flower_ann_UMAP.pdf", width=10, height=10)
+p1
+dev.off()
+
+
+
+seurat_obj <- readRDS("./alevin_seurat_clean/Root_SCT.rds")
+
+
+new.cluster.ids <- c(
+  "0" = "Endodermis",
+  "1" = "Cortex",
+  "2" = "Xylem_Parenchyma",
+  "3" = "Epidermis",
+  "4" = "Meristem",
+  "5" = "Meristem",    
+  "6" = "Trichoblast",
+  "7" = "Meristem",
+  "8" = "Vascular_Parenchyma",
+  "9" = "Pericycle",    
+  "10" = "Xylem_Parenchyma",
+  "11" = "Epidermis",
+  "12" = "Peripheral_Cells",
+  "13" = "Vascular_Parenchyma",
+  "14" = "Columella_Cells",
+  "15" = "Phloem_Parenchyma",    
+  "16" = "Developing_Sieve_Elements",
+  "17" = "Companion_Cell"
+)
+
+
+
+seurat_obj$cluster_annotation <- mapvalues(
+  seurat_obj$SCT_snn_res.2,
+  from = names(new.cluster.ids),
+  to = new.cluster.ids
+)
+
+Idents(seurat_obj) <- seurat_obj$cluster_annotation
+
+p1<- DimPlot(seurat_obj, reduction = 'umap', group.by = 'cluster_annotation', label=T)
+
+pdf("./plots_alevin/root_ann_UMAP.pdf", width=10, height=10)
+p1
+dev.off()
+
+
+seurat_obj <- readRDS("./alevin_seurat_clean/Stem_SCT.rds")
+
+
+  #new cluster IDs
+new.cluster.ids <- c(
+  "0" = "Pith",
+  "1" = "Chlorenchyma",
+  "2" = "Cambium",
+  "3" = "Companion_Cell",
+  "4" = "Chlorenchyma",
+  "5" = "Epidermis",    
+  "6" = "Cambium",
+  "7" = "Cortex",
+  "8" = "Pith",
+  "9" = "Vascular_Parenchyma",
+  "10" = "Vascular_Parenchyma",
+  "11" = "Epidermis",
+  "12" = "Cortex",
+  "13" = "Epidermis",
+  "14" = "Cambium",
+  "15" = "Cambium",
+    "16" = "Epidermis",
+  "17" = "Xylem_Parenchyma",
+  "18" = "Cortex",
+  "19" = "Phloem_Parenchyma",
+  "20" = "Cortex",
+  "21" = "Protoxylem",
+  "22" = "Cambium",
+  "23" = "Xylem_Parenchyma",
+  "24" = "Protophloem",
+  "25" = "Cambium",
+  "26" = "Companion_Cell",
+  "27" = "Trichomes",
+    "28" = "Phloem_Parenchyma"
+)
+
+
+
+seurat_obj$cluster_annotation <- mapvalues(
+  seurat_obj$SCT_snn_res.1,
+  from = names(new.cluster.ids),
+  to = new.cluster.ids
+)
+
+Idents(seurat_obj) <- seurat_obj$cluster_annotation
+
+p1<- DimPlot(seurat_obj, reduction = 'umap', group.by = 'cluster_annotation', label=T)
+
+pdf("./plots_alevin/stem_ann_UMAP.pdf", width=10, height=10)
+p1
+dev.off()
+
+
+
+seurat_obj<-readRDS("./alevin_seurat_clean/Bud_SCT.rds")
+
+  
+ p1<- DimPlot(seurat_obj, reduction = 'umap', group.by = 'SCT_snn_res.1', label=T)
+
+
+new.cluster.ids <- c(
+  "0" = "Lignified_Epidermis",
+  "1" = "Cortex",
+  "2" = "Dormant_Meristem",
+  "3" = "Suberized_Epidermis",
+  "4" = "Proliferating_Meristem",
+  "5" = "Epidermis",    
+  "6" = "Hypodermis",
+  "7" = "Suberized_Epidermis",
+  "8" = "Xylem_Parenchyma",
+  "9" = "Pith",
+  "10" = "Companion_Cell",
+  "11" = "Phloem_Parenchyma"
+)
+
+
+
+seurat_obj$cluster_annotation <- mapvalues(
+  seurat_obj$SCT_snn_res.1,
+  from = names(new.cluster.ids),
+  to = new.cluster.ids
+)
+
+Idents(seurat_obj) <- seurat_obj$cluster_annotation
+
+p1<- DimPlot(seurat_obj, reduction = 'umap', group.by = 'cluster_annotation', label=T)
+
+pdf("./plots_alevin/bud_ann_UMAP.pdf", width=10, height=10)
+p1
+dev.off()
+
+
+
+
+
+seurat_obj<-readRDS("./alevin_seurat_clean/Berry_SCT_Ann_noChl_simpler.rds")
+
+
+
+new.cluster.ids <- c(
+  "0" = "Vascular_Parenchyma",
+  "1" = "Exocarp",
+  "2" = "Mesocarp",
+  "3" = "Mesocarp",
+  "4" = "Exocarp",
+  "5" = "Mesocarp",    
+  "6" = "Epidermis",
+  "7" = "Mesocarp",
+  "8" = "Exocarp",
+   "9" = "Xylem_Parenchyma",
+  "10" = "Phloem_Parenchyma",
+  "11" = "Vascular_Parenchyma",
+  "12" = "Exocarp",
+  "13" = "Exocarp",
+  "14" = "Exocarp",    
+  "15" = "Companion_Cell"
+)
+#- Bogs et al., 2006, _Plant Physiology_, “Flavonoid pathway gene expression in grape berry skin and pulp.”
+    
+#- Castellarin et al., 2007, _Plant Physiology_, showing **skin-specific upregulation of CHS during veraison**.
+
+seurat_obj$cluster_annotation <- mapvalues(
+  seurat_obj$SCT_snn_res.1,
+  from = names(new.cluster.ids),
+  to = new.cluster.ids
+)
+
+Idents(seurat_obj) <- seurat_obj$cluster_annotation
+# Remove clusters 4 and 12
+
+p1<- DimPlot(seurat_obj, reduction = 'umap', group.by = 'cluster_annotation', label=T)
+
+pdf("./plots_alevin/berry_ann_noChl_UMAP_simpler.pdf", width=10, height=10)
+p1
+dev.off()
+
+
+
+
+
+seurat_obj<-readRDS("./alevin_seurat_clean/Leaves_SCT.rds")
+
+new.cluster.ids <- c(
+  "0" = "Mesophyll",
+  "1" = "Mesophyll",
+  "2" = "Mesophyll",
+  "3" = "Epidermis",
+  "4" = "Epidermis",
+  "5" = "Guard_Cells",    
+  "6" = "Epidermis",
+  "7" = "Companion_Cell",
+  "8" = "Phloem_Parenchyma",
+   "9" = "Companion_Cell",
+  "10" = "Epidermis",
+  "11" = "Epidermis",
+  "12" = "Epidermis",
+  "13" = "Vascular_Parenchyma",
+  "14" = "Xylem_Parenchyma",    
+  "15" = "Epidermis",
+  "16" = "Epidermis",
+   "17" = "Mesophyll",
+  "18" = "Epidermis",
+  "19" = "Mesophyll",
+  "20" = "Mesophyll",
+  "21" = "Vascular_Parenchyma",
+  "22" = "Epidermis",    
+  "23" = "Vascular_Parenchyma",
+  "24" = "Epidermis",    
+  "25" = "Companion_Cell",
+    "26" = "Vascular_Parenchyma",
+    "27" = "Vascular_Parenchyma"
+)
+
+seurat_obj$cluster_annotation <- mapvalues(
+  seurat_obj$SCT_snn_res.1,
+  from = names(new.cluster.ids),
+  to = new.cluster.ids
+)
+
+Idents(seurat_obj) <- seurat_obj$cluster_annotation
+# Remove clusters 4 and 12
+
+p1<- DimPlot(seurat_obj, reduction = 'umap', group.by = 'cluster_annotation', label=T)
+
+pdf("./plots_alevin/leaves_ann_UMAP.pdf", width=10, height=10)
+p1
+dev.off()
+
+
+
+
+
+
