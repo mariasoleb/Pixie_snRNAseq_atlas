@@ -1,0 +1,250 @@
+library(dplyr)
+library(tidyr)
+library(purrr)
+library(broom)
+library(Seurat)
+
+# load object
+seurat_obj <- readRDS("./alevin_seurat_clean/AllTissues_AllRegulons.rds")
+
+
+# use RegulonActivity
+DefaultAssay(seurat_obj) <- "RegulonActivity"
+reg_mat <- GetAssayData(seurat_obj, layer = "data") %>% as.matrix()
+
+# dataframe
+reg_df <- as.data.frame(t(reg_mat))
+reg_df$cell <- rownames(reg_df)
+
+# metadata (NOW includes Tissue_Rep)
+meta <- seurat_obj@meta.data %>%
+  mutate(cell = rownames(.)) %>%
+  select(cell, cluster_annotation, Tissue_Group, Tissue_Rep)
+
+df_all <- left_join(reg_df, meta, by = "cell") %>%
+  rename(
+    Organ = Tissue_Group,
+    CellType = cluster_annotation
+  )
+  
+  
+  df_pb <- df_all %>%
+  group_by(Organ, CellType, Tissue_Rep) %>%
+  summarise(across(where(is.numeric), \(x) mean(x, na.rm = TRUE)), .groups = "drop")
+  
+  regulon_cols <- df_pb %>% select(where(is.numeric)) %>% colnames()
+
+# 1️⃣ Aggregate mean activity per organ × cell type × replicate
+df_pb <- df_all %>%
+  group_by(Organ, CellType, Tissue_Rep) %>%
+  summarise(across(where(is.numeric), \(x) mean(x, na.rm = TRUE)), .groups = "drop") %>%
+  ungroup()
+
+# 2️⃣ Sanitize regulon names to avoid '::' issues in formulas
+regulon_cols_safe <- gsub("::", "___", regulon_cols)
+names(df_pb)[names(df_pb) %in% regulon_cols] <- regulon_cols_safe
+
+# Sanitize names
+regulon_cols_safe <- gsub("::", "___", regulon_cols)
+
+# Only keep columns that exist in df_pb
+regulon_cols_safe <- intersect(regulon_cols_safe, names(df_pb))
+
+# Rename df_pb columns
+names(df_pb)[names(df_pb) %in% regulon_cols] <- gsub("::", "___", intersect(regulon_cols, names(df_pb)))
+
+
+compare_celltype <- function(target_cell) {
+
+  df_tmp <- df_pb %>%
+    mutate(CellGroup = factor(ifelse(CellType == target_cell, target_cell, "Other"),
+                              levels = c("Other", target_cell)))
+
+  results <- map_dfr(regulon_cols_safe, function(reg) {
+
+    # Wrap the column name in backticks
+    fit <- lm(as.formula(paste0("`", reg, "` ~ CellGroup + Organ")), data = df_tmp)
+    coef_tab <- summary(fit)$coefficients
+
+    # Find the coefficient corresponding to CellGroup (target vs Other)
+    target_row <- grep(paste0("^CellGroup", target_cell, "$"), rownames(coef_tab))
+    
+    if(length(target_row) == 1) {
+      effect <- coef_tab[target_row, "Estimate"]
+      pval   <- coef_tab[target_row, "Pr(>|t|)"]
+    } else {
+      effect <- NA
+      pval <- NA
+    }
+
+    tibble(
+      regulon = gsub("___", "::", reg),
+      target_cell = target_cell,
+      effect = effect,
+      pval = pval
+    )
+  })
+
+  results <- results %>% mutate(padj = p.adjust(pval, method = "BH"))
+  return(results)
+}
+
+celltypes_to_test <- unique(df_pb$CellType)
+#celltypes_to_test <- c("Companion_Cell", "Epidermis", "Xylem_Parenchyma", "Phloem_Parenchyma")
+
+lm_results <- map_dfr(celltypes_to_test, compare_celltype)
+
+lm_results %>% filter(target_cell == "Companion_Cell") %>% arrange(padj)
+
+
+
+
+
+  library(ggplot2)
+library(patchwork)
+library(dplyr)
+# Threshold for significance
+sig_thresh <- -log10(0.00000001)
+
+# Function to create volcano plot for a cell type
+make_volcano <- function(df, cell_name, title_name) {
+  
+  df <- df %>%
+    mutate(
+      logpadj = -log10(padj),
+      sig = logpadj > sig_thresh  # TRUE if above threshold
+    )
+  
+  ggplot(df, aes(x = effect, y = logpadj)) +
+    geom_point(aes(color = sig), alpha = 0.6) +
+    scale_color_manual(values = c("FALSE" = "steelblue", "TRUE" = "red")) +
+    
+    # vertical and horizontal dashed lines
+    geom_vline(xintercept = 0, linetype = "dashed", color = "grey50") +
+    geom_hline(yintercept = sig_thresh, linetype = "dashed", color = "red") +
+    
+    # label for the dashed line
+    annotate("text", x = min(df$effect, na.rm = TRUE), 
+             y = sig_thresh + 0.5, 
+             label = "p < 1e-8", 
+             color = "red", hjust = 0, size = 4) +
+    
+    theme_minimal(base_size = 14) +
+    labs(
+      title = paste0(title_name, ": Regulon Activity Volcano Plot"),
+      x = paste0("Effect size (", cell_name, " vs Other)"),
+      y = "-log10(adjusted p-value)"
+    ) +
+    
+    # remove legend
+    theme(
+      plot.title = element_text(hjust = 0.5),
+      legend.position = "none"
+    )
+}
+
+# Create plots
+p1 <- make_volcano(lm_results %>% filter(target_cell == "Companion_Cell"),
+                   "Companion_Cell", "Companion Cells")
+
+p2 <- make_volcano(lm_results %>% filter(target_cell == "Epidermis"),
+                   "Epidermis", "Epidermis")
+
+p3 <- make_volcano(lm_results %>% filter(target_cell == "Xylem_Parenchyma"),
+                   "Xylem_Parenchyma", "Xylem Parenchyma")
+
+p4 <- make_volcano(lm_results %>% filter(target_cell == "Phloem_Parenchyma"),
+                   "Phloem_Parenchyma", "Phloem Parenchyma")
+
+
+
+
+compare_organ <- function(target_organ) {
+
+  df_tmp <- df_pb %>%
+    mutate(OrganGroup = factor(ifelse(Organ == target_organ, target_organ, "Other"),
+                               levels = c("Other", target_organ)))
+
+  results <- map_dfr(regulon_cols_safe, function(reg) {
+
+    fit <- lm(as.formula(paste0("`", reg, "` ~ OrganGroup + CellType")), data = df_tmp)
+    coef_tab <- summary(fit)$coefficients
+
+    # Find coefficient row
+    target_row <- grep(paste0("^OrganGroup", target_organ, "$"), rownames(coef_tab))
+
+    if(length(target_row) == 1) {
+      effect <- coef_tab[target_row, "Estimate"]
+      pval   <- coef_tab[target_row, "Pr(>|t|)"]
+    } else {
+      effect <- NA
+      pval <- NA
+    }
+
+    tibble(
+      regulon = gsub("___", "::", reg),
+      target_organ = target_organ,
+      effect = effect,
+      pval = pval
+    )
+  })
+
+  results <- results %>%
+    mutate(padj = p.adjust(pval, method = "BH"))
+
+  return(results)
+}
+
+
+
+organs_to_test <- unique(df_pb$Organ)
+
+organ_results <- map_dfr(organs_to_test, compare_organ)
+
+
+p_list <- lapply(organs_to_test, function(org) {
+  make_volcano(
+    organ_results %>% filter(target_organ == org),
+    org,
+    org
+  )
+})
+
+
+
+#variance partitioning
+
+expr_mat <- df_pb %>%
+  select(all_of(regulon_cols_safe)) %>%
+  as.matrix()
+
+# transpose so:
+# rows = regulons
+# columns = samples
+expr_mat <- t(expr_mat)
+ meta_vp <- df_pb %>%
+  select(Organ, CellType, Tissue_Rep)
+library(variancePartition)
+
+form <- ~ (1|Organ) + (1|CellType)
+
+vp <- fitExtractVarPartModel(expr_mat, form, meta_vp)
+
+pdf("./plots_alevin/Regulons_VariancePartitioning_Barplot.pdf", width = 5, height = 5)
+ plotVarPart(vp)
+dev.off()
+
+vp_df <- as.data.frame(vp)
+vp_df$regulon <- rownames(vp_df)
+
+library(ggplot2)
+
+ggplot(vp_df, aes(x = CellType, y = Organ)) +
+  geom_point(alpha = 0.5) +
+  theme_minimal() +
+  labs(
+    x = "Variance explained by Cell Type",
+    y = "Variance explained by Organ",
+    title = "Regulon specificity landscape"
+  )
+  
