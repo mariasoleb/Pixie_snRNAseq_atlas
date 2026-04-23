@@ -1,0 +1,63 @@
+
+wget https://jaspar.genereg.net/download/data/2024/CORE/JASPAR2024_CORE_plants_non-redundant_pfms_meme.txt
+
+
+
+# get promoters in each gene in Pixie genoms
+
+awk '$3=="gene" {
+  if ($7=="+") {
+    print $1, $4-1, $4, $9, ".", $7
+  } else if ($7=="-") {
+    print $1, $5-1, $5, $9, ".", $7
+  }
+}' OFS="\t" "./ref/pixieannotation.gff3" > "./ref/genes_tss.bed"
+
+#index the fasta
+samtools faidx ./ref/VITVvi_vPixieFPS01_v1.0.pseudomolecules.all.fasta
+
+
+cut -f1,2 \
+  ./ref/VITVvi_vPixieFPS01_v1.0.pseudomolecules.all.fasta.fai \
+  > ./ref/genome.chrom.sizes
+
+
+
+bedtools slop \
+  -i /DATA15/Projects/Pixie_snRNAseq/celescope_ref/genes_tss.bed \
+  -g /DATA15/Projects/Pixie_snRNAseq/celescope_ref/genome.chrom.sizes \
+  -l 2000 \
+  -r 200 \
+  -s \
+  > ./ref/promoters_2kb_200bp.bed
+
+
+
+#quick check, this should be same number
+wc -l ./ref/genes_tss.bed
+wc -l ./ref/promoters_2kb_200bp.bed
+
+#49605
+
+
+#EXTRACT PROMOTER FASTA
+bedtools getfasta \
+  -fi ./ref/VITVvi_vPixieFPS01_v1.0.pseudomolecules.all.fasta \
+  -bed ./ref/promoters_2kb_200bp.bed \
+  -s \
+  -name \
+  > ./ref/promoters_2kb_200bp.fa
+
+head ./ref/promoters_2kb_200bp.fa
+
+
+
+#scan motifs 
+
+./Tools/meme-5.5.9/meme/bin/fimo \
+  --oc fimo_out \
+  --thresh 1e-4 \
+  ./JASPAR2024_CORE_plants_non-redundant_pfms_meme.txt \
+  ./ref/promoters_2kb_200bp.fa
+
+
