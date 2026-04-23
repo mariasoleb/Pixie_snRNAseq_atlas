@@ -210,6 +210,67 @@ gene_clusters_df <- data.frame(Gene = names(gene_clusters),
                                Cluster = gene_clusters)
 write.csv(gene_clusters_df, "plots_alevin/Comp_pseudobulk_heatmap_clusters.csv", row.names = FALSE)
 
-write.csv(expr_tissue_scaled, "plots_alevin/Comp_pseudobulk_heatmap_scaled_genes.csv", row.names = T)
+
+##LRT approach
+#Genes that vary across organs (no reference).
+dds_lrt <- DESeq(
+  dds,
+  test = "LRT",
+  reduced = ~ 1
+)
+
+res_lrt <- results(dds_lrt)
+
+sig_genes <- rownames(res_lrt)[which(res_lrt$padj < 0.05)]
+
+
+vsd <- vst(dds, blind = FALSE)
+expr <- assay(vsd)
+
+organ_means <- t(apply(expr, 1, function(x) {
+  tapply(x, dds$Tissue_Group, mean)
+}))
+
+organ_means_sig <- organ_means[sig_genes, ]
+
+#scale by row 
+mat <- as.matrix(organ_means_sig)
+
+# z-score per gene
+mat_scaled <- t(scale(t(mat)))
+library(pheatmap)
+pdf("plots_alevin/XP_Pseudobulk_DEGs_AllTissue_Heatmap_LRT.pdf", width = 6, height = 6)
+pheatmap(
+  mat_scaled,
+  cluster_rows = TRUE,
+  cluster_cols = TRUE,
+  show_rownames = FALSE,
+  fontsize_col = 10,
+  color = colorRampPalette(c("#440154", "#21908C", "#FDE725"))(100),
+  main = "Organ-specific expression of xylem parenchyma genes"
+)
+dev.off()
+
+
+library(tibble)
+
+mat_scaled <- as.data.frame(mat_scaled) %>%
+  rownames_to_column(var = "SeqName")
+
+
+Pixie_ann<-read.delim("VITVvi_vPixieFPS01_v1.0.pseudomolecules.all.functional.txt", header=TRUE)
+# Remove the ".pXX" at the end of each SeqName string
+Pixie_ann$SeqName <- sub("\\.p\\d+$", "", Pixie_ann$SeqName)
+# Replace all hyphens with underscores
+Pixie_ann$SeqName <- gsub("_", "-", Pixie_ann$SeqName)  
+# Step 2: Remove duplicate SeqName entries
+Pixie_ann <- Pixie_ann[!duplicated(Pixie_ann$SeqName), ]
+
+
+mat_scaled<-merge(mat_scaled, Pixie_ann, by="SeqName")
+
+write.csv(mat_scaled, "plots_alevin/XP_pseudobulk_heatmap_scaled_genes_LRT.csv", row.names = FALSE)
+
+
 
 
