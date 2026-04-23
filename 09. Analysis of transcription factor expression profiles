@@ -1,0 +1,174 @@
+
+#convert Pixie to PN40024 using MCscan (Manon)
+
+cd Athaliana_markers/
+#convert  PN40024 gene IDs v5 (=T2T) to v1
+wget https://grapedia.org/wp-content/uploads/2024/11/all_on_T2T_ref_equivalences_filtered_no_copies_symbols.csv
+
+awk '$1 ~ /^GSVIV/ && $2 ~ /^Vitvi/' all_on_T2T_ref_equivalences_filtered_no_copies_symbols.csv > all_on_T2T_ref_equivalences_filtered_no_copies_symbols_v0_vs_v1.csv
+
+
+#merge files
+
+# Input files
+file1="all_on_T2T_ref_equivalences_filtered_no_copies_symbols_v0_vs_v1.csv"   # your first file
+file2="VITVvi_vPixieFPS01_v1.PN40024_T2T.anchors"   # your second file
+
+# Step 1: clean _tXXX suffix from 2nd column of file2, then merge on column 2 (file1) <-> column 2 (file2)
+awk '
+BEGIN { FS=OFS="\t" }
+FNR==NR {
+    # clean transcript suffix like _t001 from 2nd column
+    gsub(/_t[0-9]+$/, "", $2)
+    map[$2]=$0
+    next
+}
+{
+    key=$2
+    if (key in map) {
+        print $0, map[key]
+    }
+}' "$file2" "$file1" > Pixie_v0_merged.tsv
+
+
+#get TFs list
+
+wget https://planttfdb.gao-lab.org/download/TF_list/Vvi_TF_list.txt.gz
+
+
+awk '
+BEGIN { FS=OFS="\t" }
+
+FNR==NR {
+    # Pixie file
+    pixie[$1] = $14
+    next
+}
+
+NR>1 {
+    # TF list (skip header)
+    if ($2 in pixie)
+        print $0, pixie[$2]
+    else
+        print $0, "NA"
+}
+' Pixie_v0_merged.tsv Vvi_TF_list.txt > Vvi_TF_list_with_Pixie.tsv
+
+
+#count how many TFs and homologs
+
+tail -n +2 Vvi_TF_list_with_Pixie.tsv | wc -l
+#only unique 
+tail -n +2 Vvi_TF_list_with_Pixie.tsv | cut -f1 | sort -u | wc -l
+
+#1276
+
+tail -n +2 Vvi_TF_list_with_Pixie.tsv | awk '$4 != "NA"' | wc -l
+
+#1196
+
+#per family
+
+tail -n +2 Vvi_TF_list_with_Pixie.tsv | awk '$4 != "NA"' | cut -f3 | sort | uniq -c
+#TF_Pixie_Family_Total.xlsx
+
+
+
+library(Seurat)
+
+seurat_obj <- readRDS("./alevin_seurat_clean/AllTissues_SCT.rds")
+
+
+tf_genes <- read.table(
+  "./Athaliana_markers/Vvi_TF_list_with_Pixie.tsv",
+  header = TRUE,
+  sep = "\t",
+  stringsAsFactors = FALSE
+)
+names(tf_genes)[names(tf_genes) == "NA."] <- "SeqName"
+
+# Remove the ".t01" at the end of each SeqName string
+tf_genes$SeqName <- sub("\\.t\\d+$", "", tf_genes$SeqName)
+tf_genes$SeqName <- gsub("_", "-", tf_genes$SeqName)  # Replace all hyphens with underscores
+
+
+tf_genes2 <- intersect(tf_genes$SeqName, rownames(seurat_obj))
+length(tf_genes2)
+#879
+
+
+seurat_obj$cluster_tissue <- paste(
+  seurat_obj$cluster_annotation,
+  seurat_obj$Tissue_Group,
+  sep = "__"
+)
+
+
+pb <- AggregateExpression(
+  seurat_obj,
+  assays = "SCT",
+  slot = "data",
+  group.by = "cluster_tissue"
+)
+
+pb_mat <- pb$SCT
+
+
+tf_mat <- pb_mat[tf_genes2, ]
+
+# Z-score per gene
+tf_z <- t(scale(t(tf_mat)))
+
+
+split_cols <- strsplit(colnames(tf_z), "--")
+
+col_anno <- data.frame(
+  cluster = sapply(split_cols, `[`, 1),
+  tissue  = sapply(split_cols, `[`, 2),
+  row.names = colnames(tf_z),
+  stringsAsFactors = FALSE
+)
+
+ord <- order(col_anno$tissue, col_anno$cluster)
+tf_z <- tf_z[, ord]
+col_anno <- col_anno[ord, ]
+
+#remove :
+#- TFs never expressed
+    
+#- TFs expressed everywhere equally
+    
+#- TFs with undefined Z-scores
+tf_z_clean <- tf_z[
+  apply(tf_z, 1, function(x) all(is.finite(x)) & sd(x) > 0),
+]
+
+#> length(tf_z)
+#[1] 87021
+#> length(tf_z_clean)
+#[1] 86922
+
+#reorder
+col_anno_clean <- col_anno[colnames(tf_z_clean), ]
+
+
+ library(pheatmap)
+ 
+ 
+pdf("plots_alevin/TFs_AllTissue_Heatmap.pdf", width = 15, height = 12)
+
+pheatmap(
+  tf_z_clean,
+  cluster_rows = TRUE,
+  cluster_cols = FALSE,
+  #annotation_col = col_anno_clean,
+  show_rownames = FALSE,
+  fontsize_col = 8,
+  #color = colorRampPalette(c("#440154", "#21908C", "#FDE725"))(100),
+        color = colorRampPalette(c("white", "#3f8cda", "#B2182B"))(100),
+
+  main = "TF Z-score expression by cluster and tissue"
+)
+
+dev.off()
+
