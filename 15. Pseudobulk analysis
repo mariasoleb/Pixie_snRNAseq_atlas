@@ -1,0 +1,215 @@
+library(Seurat)
+library(DESeq2)
+#library(tidyverse)
+
+
+seurat_obj <- readRDS("./alevin_seurat_clean/AllTissues_SCT.rds")
+
+  seu <- subset(
+    seurat_obj,
+    subset = cluster_annotation == "Companion_Cell"
+  )
+DefaultAssay(seu)<-"RNA"
+seu<-JoinLayers(seu)
+
+
+DefaultAssay(seu)<-"RNA"
+
+cts <- AggregateExpression(seu, 
+                           group.by = c("Tissue_Rep"),
+                           assays = 'RNA',
+                           # layer = "counts",
+                           return.seurat = FALSE)
+
+cts <- cts$RNA
+
+cts.t <- t(cts)
+
+
+# convert to data.frame
+cts.t <- as.data.frame(cts.t)
+cts.t[1:10,1:10]
+cts.split<-t(cts.t)
+
+colData<-data.frame(Tissue_Rep= colnames(cts.split))
+colData$Tissue_Group <- dplyr::case_when(
+  grepl("^Green", colData$Tissue_Rep) ~ "GreenBerry",
+  grepl("^Harvest", colData$Tissue_Rep) ~ "HarvestBerry",
+  grepl("^PostHarvest", colData$Tissue_Rep) ~ "PostHarvestBerry",
+    grepl("^FLOWER", colData$Tissue_Rep) ~ "Flower",
+  grepl("^ROOT", colData$Tissue_Rep) ~ "Root",
+  grepl("^STEM", colData$Tissue_Rep) ~ "Stem",
+    grepl("^BUD", colData$Tissue_Rep) ~ "Bud",
+  grepl("^NEWLEAF", colData$Tissue_Rep) ~ "YoungLeaf",
+    grepl("^OLDLEAF", colData$Tissue_Rep) ~ "OldLeaf",
+  TRUE ~ colData$Tissue_Rep
+)
+
+
+
+# Option 1: Use interaction model
+dds <- DESeqDataSetFromMatrix(
+  countData = cts.split,
+  colData = colData,
+  design = ~ Tissue_Group
+)
+
+# filter
+#keep <- rowSums(counts(dds)) >=10
+#dds <- dds[keep,]
+
+# run DESeq2
+dds <- DESeq(dds)
+
+# Check the coefficients for the comparison
+resultsNames(dds)
+
+
+library(ggplot2)
+
+# Step 1: Variance Stabilizing Transformation (VST)
+vsd <- vst(dds, blind = FALSE)  
+
+# Step 2: Extract PCA data
+pcaData <- plotPCA(vsd, intgroup = c("Tissue_Group"), returnData = TRUE)
+
+# Step 3: Calculate % variance explained by PC1 and PC2
+percentVar <- round(100 * attr(pcaData, "percentVar"))
+
+
+
+
+pdf("./plots_alevin/pseudobulkRNAseq_PCA_Comp.pdf", width = 5, height = 5)
+
+# Step 4: Plot PCA with ggplot2
+ggplot(pcaData, aes(PC1, PC2, color = Tissue_Group, label= name)) +
+  geom_point(size = 4) +
+  geom_text(aes(label = name), vjust = -0.5, size = 3) +  # Add this line
+  xlab(paste0("PC1: ", percentVar[1], "% variance")) +
+  ylab(paste0("PC2: ", percentVar[2], "% variance")) +
+  theme_minimal() 
+
+dev.off()
+
+
+#get all DEGs in a dataset
+res_names <- resultsNames(dds)
+res_names
+
+res_names <- res_names[grepl("^Tissue_Group_", res_names)]
+
+
+deg_list <- lapply(res_names, function(coef_name) {
+  res <- results(dds, name = coef_name)
+  res_df <- as.data.frame(res)
+  res_df$gene <- rownames(res_df)
+  res_df$contrast <- coef_name
+  res_df
+})
+
+deg_all <- dplyr::bind_rows(deg_list)
+
+library(dplyr)
+deg_all <- deg_all %>%
+  tidyr::separate(
+    contrast,
+    into = c("tmp", "comparison"),
+    sep = "Tissue_Group_",
+    remove = FALSE
+  ) %>%
+  tidyr::separate(
+    comparison,
+    into = c("Tissue", "Ref"),
+    sep = "_vs_"
+  )
+
+
+#DEGs are organs compared to bud
+deg_sig <- deg_all %>%
+  dplyr::filter(
+    !is.na(padj),
+    padj < 0.05,
+    abs(log2FoldChange) > 1
+  )
+
+
+
+
+Pixie_ann<-read.delim("VITVvi_vPixieFPS01_v1.0.pseudomolecules.all.functional.txt", header=TRUE)
+# Remove the ".pXX" at the end of each SeqName string
+Pixie_ann$SeqName <- sub("\\.p\\d+$", "", Pixie_ann$SeqName)
+# Replace all hyphens with underscores
+Pixie_ann$SeqName <- gsub("_", "-", Pixie_ann$SeqName)  
+# Step 2: Remove duplicate SeqName entries
+Pixie_ann <- Pixie_ann[!duplicated(Pixie_ann$SeqName), ]
+
+
+colnames(deg_sig)[7]<-"SeqName"
+
+deg_sig_ann<-merge(deg_sig, Pixie_ann, by="SeqName")
+
+
+write.csv(deg_sig_ann, "./ClusterAnnotation_alevin/Comp_Alltissues_Pseudobulk_DEGs.csv")
+
+
+#heatmap
+library(DESeq2)
+
+vsd <- vst(dds, blind = FALSE)
+expr_mat <- assay(vsd)
+
+deg_genes <- unique(deg_sig_ann$SeqName)
+
+expr_deg <- expr_mat[rownames(expr_mat) %in% deg_genes, ]
+dim(expr_deg)
+
+
+
+library(dplyr)
+
+tissue_info <- colData(dds) %>%
+  as.data.frame() %>%
+  select(Tissue_Rep)
+
+# Average expression per tissue
+expr_tissue <- sapply(unique(tissue_info$Tissue_Rep), function(t) {
+  rowMeans(expr_deg[, tissue_info$Tissue_Rep == t, drop = FALSE])
+})
+
+expr_tissue <- as.matrix(expr_tissue)
+expr_tissue_scaled <- t(scale(t(expr_tissue)))
+expr_tissue_scaled <- expr_tissue_scaled[complete.cases(expr_tissue_scaled), ]
+library(pheatmap)
+
+
+# Tissue annotation for columns
+annotation_col <- data.frame(
+  Organ = colnames(expr_tissue_scaled)
+)
+
+rownames(annotation_col) <- colnames(expr_tissue_scaled)
+
+
+pdf("plots_alevin/Comp_Pseudobulk_DEGs_AllTissue_Heatmap.pdf", width = 8, height = 12)
+pheatmap(
+  expr_tissue_scaled,
+  cluster_rows = TRUE,
+  cluster_cols = TRUE,
+  show_rownames = FALSE,
+  fontsize_col = 12,
+  annotation_col = annotation_col,
+  #annotation_colors = ann_colors,
+  main = "CC pseudobulk DEGs across organs (VST-scaled)"
+)
+dev.off()
+
+
+row_hc <- p$tree_row
+gene_clusters <- cutree(row_hc, k = 8)  # You can change k to the number of clusters you want
+gene_clusters_df <- data.frame(Gene = names(gene_clusters),
+                               Cluster = gene_clusters)
+write.csv(gene_clusters_df, "plots_alevin/Comp_pseudobulk_heatmap_clusters.csv", row.names = FALSE)
+
+write.csv(expr_tissue_scaled, "plots_alevin/Comp_pseudobulk_heatmap_scaled_genes.csv", row.names = T)
+
+
