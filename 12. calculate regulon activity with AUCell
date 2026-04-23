@@ -1,4 +1,10 @@
+# Calculate Regulon Activity with AUCell
 
+## Goal
+
+Load MINI-EX2 regulon outputs, compute per-cell regulon activity scores across all cells using AUCell, and visualize average regulon activity per organ and cell type as heatmaps.
+
+```r
 library(dplyr)
 library(AUCell)
 library(Seurat)
@@ -10,21 +16,21 @@ files <- list.files(regulon_dir, full.names = TRUE)
 
 # function to read one regulon file
 read_regulons <- function(file) {
-  
+
   organ <- gsub("_regulons.tsv", "", basename(file))
-  
+
   reg <- read.delim(file, header = FALSE)
   colnames(reg) <- c("TF","cluster","targets")
-  
+
   regulons <- lapply(1:nrow(reg), function(i) {
     strsplit(reg$targets[i], ",")[[1]]
   })
-  
+
   # IMPORTANT: add organ prefix
   names(regulons) <- paste0(
     organ, "::", reg$TF, "-", reg$cluster
   )
-  
+
   return(regulons)
 }
 
@@ -181,4 +187,4 @@ Heatmap(
 dev.off()
 
 write.csv(mat, "./output_dir/AllRegulons_AllOrgans_activity.csv")
-
+```

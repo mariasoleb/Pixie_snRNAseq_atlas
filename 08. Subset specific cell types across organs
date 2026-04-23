@@ -1,3 +1,10 @@
+# Subset Specific Cell Types Across Organs
+
+## Goal
+
+Subset companion cells from the merged atlas, re-cluster them, and perform marker gene identification across sub-clusters and organ groups.
+
+```r
 seurat_obj <- readRDS("./alevin_seurat_clean/AllTissues_SCT.rds")
 
   seu <- subset(
@@ -15,19 +22,19 @@ seurat_obj<-seu
   seurat_obj <- SCTransform(object = seurat_obj)
 
   seurat_obj <- RunPCA(seurat_obj, npcs = 30, verbose = F)
-ElbowPlot(seurat_obj, ndims = 30)   
+ElbowPlot(seurat_obj, ndims = 30)
   seurat_obj <- FindNeighbors(seurat_obj, dims = 1:30,  k.param = 20)
   seurat_obj <- FindClusters(seurat_obj, resolution = 1)
   seurat_obj <- RunUMAP(seurat_obj, dims = 1:30, reduction = "pca")
     #optimize umap
 seurat_obj <- RunUMAP(
-  seurat_obj, 
-  dims = 1:30, 
+  seurat_obj,
+  dims = 1:30,
   n.neighbors = 10,   # smaller = more local structure
   min.dist = 0.01      # smaller = tighter clusters
 )
-  
-  
+
+
  p1<- DimPlot(seurat_obj, reduction = 'umap', group.by = 'SCT_snn_res.1', label=T)
   p2<- DimPlot(seurat_obj, reduction = 'umap', group.by = 'Tissue_Rep', label=T)
 #no batch effect, no need to integrate
@@ -73,7 +80,7 @@ Pixie_ann<-read.delim("VITVvi_vPixieFPS01_v1.0.pseudomolecules.all.functional.tx
 # Remove the ".pXX" at the end of each SeqName string
 Pixie_ann$SeqName <- sub("\\.p\\d+$", "", Pixie_ann$SeqName)
 # Replace all hyphens with underscores
-Pixie_ann$SeqName <- gsub("_", "-", Pixie_ann$SeqName)  
+Pixie_ann$SeqName <- gsub("_", "-", Pixie_ann$SeqName)
 # Step 2: Remove duplicate SeqName entries
 Pixie_ann <- Pixie_ann[!duplicated(Pixie_ann$SeqName), ]
 
@@ -123,7 +130,7 @@ Pixie_ann<-read.delim("VITVvi_vPixieFPS01_v1.0.pseudomolecules.all.functional.tx
 # Remove the ".pXX" at the end of each SeqName string
 Pixie_ann$SeqName <- sub("\\.p\\d+$", "", Pixie_ann$SeqName)
 # Replace all hyphens with underscores
-Pixie_ann$SeqName <- gsub("_", "-", Pixie_ann$SeqName)  
+Pixie_ann$SeqName <- gsub("_", "-", Pixie_ann$SeqName)
 # Step 2: Remove duplicate SeqName entries
 Pixie_ann <- Pixie_ann[!duplicated(Pixie_ann$SeqName), ]
 
@@ -134,3 +141,4 @@ all_markers_ann<-merge(all_markers, Pixie_ann, by="SeqName")
 
 
 write.csv(all_markers_ann, "./ClusterAnnotation_alevin/Comp_AllMarkers_Tissue_res1.csv")
+```

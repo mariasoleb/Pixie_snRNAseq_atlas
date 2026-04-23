@@ -1,5 +1,11 @@
+# Quantify Using Simpleaf
 
-  # Define filename pattern
+## Goal
+
+Quantify snRNA-seq reads across all tissue samples using simpleaf, and generate per-sample quality control reports using alevinQC.
+
+```bash
+# Define filename pattern
 reads1_pat="_R1_001_preprocessed"
 reads2_pat="_R2_"
 
@@ -8,7 +14,7 @@ reads1="$(find -L /DATA15/Projects/Pixie_snRNAseq/NEWLEAF2 -name "*$reads1_pat*"
 
 reads2="$(find -L /DATA15/Projects/Pixie_snRNAseq/NEWLEAF2 -name "*$reads2_pat*" -type f | sort | awk -v OFS=, '{$1=$1;print}' | paste -sd, -)"
 
-  
+
   nohup simpleaf quant \
 --reads1 $reads1 \
 --reads2 $reads2 \
@@ -32,11 +38,13 @@ for sample_dir in "BUD1" "BUD2" "FLOWER1" "FLOWER2" "NEWLEAF1" "NEWLEAF2" "OLDLE
     reads1=$(find "/DATA15/Projects/Pixie_snRNAseq/$sample_dir" -name "*_R1_001_preprocessed*.fastq.gz" | sort | paste -sd "," -)
     reads2=$(find "/DATA15/Projects/Pixie_snRNAseq/$sample_dir" -name "*_R2_001.fastq.gz" | sort | paste -sd "," -)
 
-echo "simpleaf quant --reads1 \"$reads1\" --reads2 \"$reads2\" --threads 8 --index \"$IDX_DIR/index\" --knee --chemistry GEXSCOPE-V2-preprocessed --resolution cr-like --anndata-out --output \"$AF_SAMPLE_DIR/${sample_name}_simpleaf\""  
+echo "simpleaf quant --reads1 \"$reads1\" --reads2 \"$reads2\" --threads 8 --index \"$IDX_DIR/index\" --knee --chemistry GEXSCOPE-V2-preprocessed --resolution cr-like --anndata-out --output \"$AF_SAMPLE_DIR/${sample_name}_simpleaf\""
 done > commands.sh
 
 nohup parallel -j 1 :::: commands.sh > simpleafMap.log 2>&1 &
+```
 
+```r
 #Quality control
 
 library(alevinQC)
@@ -54,5 +62,4 @@ simpleafQCReport(
   ignorePandoc = FALSE,
   customCBList = list()
 )
-
-
+```

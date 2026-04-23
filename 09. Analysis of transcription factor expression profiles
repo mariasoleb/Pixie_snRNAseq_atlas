@@ -1,4 +1,10 @@
+# Analysis of Transcription Factor Expression Profiles
 
+## Goal
+
+Compile a grapevine TF list with Pixie gene IDs and motif information by mapping across genome versions, then visualize TF expression specificity across cell types and tissues using pseudobulk heatmaps.
+
+```bash
 #convert Pixie to PN40024 using MCscan (Manon)
 
 cd Athaliana_markers/
@@ -58,7 +64,7 @@ NR>1 {
 #count how many TFs and homologs
 
 tail -n +2 Vvi_TF_list_with_Pixie.tsv | wc -l
-#only unique 
+#only unique
 tail -n +2 Vvi_TF_list_with_Pixie.tsv | cut -f1 | sort -u | wc -l
 
 #1276
@@ -71,9 +77,9 @@ tail -n +2 Vvi_TF_list_with_Pixie.tsv | awk '$4 != "NA"' | wc -l
 
 tail -n +2 Vvi_TF_list_with_Pixie.tsv | awk '$4 != "NA"' | cut -f3 | sort | uniq -c
 #TF_Pixie_Family_Total.xlsx
+```
 
-
-
+```r
 library(Seurat)
 
 seurat_obj <- readRDS("./alevin_seurat_clean/AllTissues_SCT.rds")
@@ -135,9 +141,9 @@ col_anno <- col_anno[ord, ]
 
 #remove :
 #- TFs never expressed
-    
+
 #- TFs expressed everywhere equally
-    
+
 #- TFs with undefined Z-scores
 tf_z_clean <- tf_z[
   apply(tf_z, 1, function(x) all(is.finite(x)) & sd(x) > 0),
@@ -153,8 +159,8 @@ col_anno_clean <- col_anno[colnames(tf_z_clean), ]
 
 
  library(pheatmap)
- 
- 
+
+
 pdf("plots_alevin/TFs_AllTissue_Heatmap.pdf", width = 15, height = 12)
 
 pheatmap(
@@ -171,4 +177,4 @@ pheatmap(
 )
 
 dev.off()
-
+```

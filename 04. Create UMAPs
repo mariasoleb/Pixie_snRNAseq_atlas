@@ -1,24 +1,31 @@
- #SCTransform 
-  
+# Create UMAPs
+
+## Goal
+
+Normalize merged tissue Seurat objects with SCTransform, perform dimensionality reduction and clustering, and generate UMAP visualizations per tissue.
+
+```r
+ #SCTransform
+
   seurat_bud<-readRDS("./alevin_seurat_clean/BUD_merged_seurat.rds")
 seurat_obj<-seurat_bud
   seurat_obj <- SCTransform(object = seurat_obj)
 
   seurat_obj <- RunPCA(seurat_obj, npcs = 100, verbose = F)
-ElbowPlot(seurat_obj, ndims = 100)   
+ElbowPlot(seurat_obj, ndims = 100)
   seurat_obj <- FindNeighbors(seurat_obj, dims = 1:75,  k.param = 20)
   seurat_obj <- FindClusters(seurat_obj, resolution = 1)
   seurat_obj <- RunUMAP(seurat_obj, dims = 1:75, reduction = "pca")
     #optimize umap
 seurat_obj <- RunUMAP(
-  seurat_obj, 
-  dims = 1:75, 
+  seurat_obj,
+  dims = 1:75,
   n.neighbors = 10,   # smaller = more local structure
   min.dist = 0.01      # smaller = tighter clusters
 )
-  
+
 saveRDS(seurat_obj, "./alevin_seurat_clean/Bud_SCT.rds")
-  
+
  p1<- DimPlot(seurat_obj, reduction = 'umap', group.by = 'SCT_snn_res.1', label=T)
   p2<- DimPlot(seurat_obj, reduction = 'umap', group.by = 'Tissue_Rep', label=T)
 #the two reps do not have batch effect, no need to integrate
@@ -36,5 +43,4 @@ umap_coords <- cbind(umap_coords, seurat_obj@meta.data)
 
 # Save to CSV
 write.csv(umap_coords, file = "./plots_alevin/Bud_UMAP_coordinates.csv", row.names = TRUE)
-
-
+```

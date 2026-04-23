@@ -1,4 +1,10 @@
+# Developmental Trajectories
 
+## Goal
+
+Refine cluster annotations with developmental stage labels and reconstruct pseudotime trajectories using Monocle3 for berry exocarp, berry mesocarp, leaf epidermis, leaf mesophyll, and flower pollen cell types.
+
+```r
 library(monocle3)
 #library(SeuratWrappers)
 library(Seurat)
@@ -15,7 +21,7 @@ new.cluster.ids <- c(
   "2" = "Ripening_Mesocarp",
   "3" = "Green_Mesocarp",
   "4" = "Mature_Exocarp",
-  "5" = "Mature_Mesocarp",    
+  "5" = "Mature_Mesocarp",
   "6" = "Epidermis",
   "7" = "Green_Mesocarp",
   "8" = "Ripening_Exocarp",
@@ -24,12 +30,12 @@ new.cluster.ids <- c(
   "11" = "Vascular_Parenchyma",
   "12" = "Ripening_Exocarp",
   "13" = "Green_Exocarp",
-  "14" = "Ripening_Exocarp",    
+  "14" = "Ripening_Exocarp",
   "15" = "Companion_Cell"
 )
-#- Bogs et al., 2006, _Plant Physiology_, “Flavonoid pathway gene expression in grape berry skin and pulp.”
-    
-#- Castellarin et al., 2007, _Plant Physiology_, showing **skin-specific upregulation of CHS during veraison**.
+#- Bogs et al., 2006, _Plant Physiology_, "Flavonoid pathway gene expression in grape berry skin and pulp."
+
+#- Castellarin et al., 2007, _Plant Physiology_, showing **skin-specific upregulation of CHS during veraison**.
 
 seurat_obj$refined_cluster <- mapvalues(
   seurat_obj$SCT_snn_res.1,
@@ -95,9 +101,9 @@ round(percent_tab, 2)
   Harvest_2              5.24          57.01            37.75
   PostHarvest_1          5.85          61.62            32.53
   PostHarvest_2          3.31          55.63            41.06
-  
-  
-  
+
+
+
 a1 <- DimPlot(exocarp_cells, reduction = 'umap', group.by = 'refined_cluster', label = T)
 a2 <- DimPlot(exocarp_cells, reduction = 'umap', group.by = 'SCT_snn_res.0.9', label = T)
   pdf("./plots_alevin/Pseudotime_exocarp_umap_clusters.pdf", width=7, height=5)
@@ -133,7 +139,7 @@ reacreate.partition <- as.factor(reacreate.partition)
 
 cds@clusters$UMAP$partitions <- reacreate.partition
 
-# Assign the cluster info 
+# Assign the cluster info
 
 list_cluster <- exocarp_cells@active.ident
 cds@clusters$UMAP$clusters <- list_cluster
@@ -213,9 +219,9 @@ deg_bcells <- graph_test(cds, neighbor_graph = 'principal_graph', cores = 4)
 write.csv(deg_bcells,"./ClusterAnnotation_alevin/pseudotime_exocarp_degs.csv")
 
 
-deg_bcells %>% 
-  arrange(q_value) %>% 
-  filter(status == 'OK') %>% 
+deg_bcells %>%
+  arrange(q_value) %>%
+  filter(status == 'OK') %>%
   head(20)
 
 FeaturePlot(exocarp_cells, features = c('VITVvi-vPixieFPS01-v1.0.Hap1.chr01.ver1.0.g004520', 'VITVvi-vPixieFPS01-v1.0.Hap1.chr02.ver1.0.g015000', 'VITVvi-vPixieFPS01-v1.0.Hap1.chr02.ver1.0.g017670','VITVvi-vPixieFPS01-v1.0.Hap1.chr02.ver1.0.g017680'))
@@ -241,12 +247,6 @@ mesocarp_cells <- subset(
 )
 #dim(mesocarp_cells)
 #[1] 26882  6454
-
-#cds <- as.cell_data_set(mesocarp_cells)
-
-# transfer metadata
-#colData(cds)$cell_type <- mesocarp_cells$refined_cluster
-
 
 # pre-processing using seurat
 mesocarp_cells <- NormalizeData(mesocarp_cells)
@@ -286,9 +286,9 @@ round(percent_tab, 2)
   PostHarvest_1             32.38          10.19           57.42
   PostHarvest_2             27.10           7.48           65.42
 
-  
-  
-  
+
+
+
 a1 <- DimPlot(mesocarp_cells, reduction = 'umap', group.by = 'refined_cluster', label = T)
 a2 <- DimPlot(mesocarp_cells, reduction = 'umap', group.by = 'SCT_snn_res.0.6', label = T)
 
@@ -325,7 +325,7 @@ reacreate.partition <- as.factor(reacreate.partition)
 
 cds@clusters$UMAP$partitions <- reacreate.partition
 
-# Assign the cluster info 
+# Assign the cluster info
 
 list_cluster <- mesocarp_cells@active.ident
 cds@clusters$UMAP$clusters <- list_cluster
@@ -406,9 +406,9 @@ deg_bcells <- graph_test(cds, neighbor_graph = 'principal_graph', cores = 4)
 write.csv(deg_bcells,"./ClusterAnnotation_alevin/pseudotime_mesocarp_degs.csv")
 
 
-deg_bcells %>% 
-  arrange(q_value) %>% 
-  filter(status == 'OK') %>% 
+deg_bcells %>%
+  arrange(q_value) %>%
+  filter(status == 'OK') %>%
   head(20)
 
 FeaturePlot(exocarp_cells, features = c('VITVvi-vPixieFPS01-v1.0.Hap1.chr01.ver1.0.g004520', 'VITVvi-vPixieFPS01-v1.0.Hap1.chr02.ver1.0.g015000', 'VITVvi-vPixieFPS01-v1.0.Hap1.chr02.ver1.0.g017670','VITVvi-vPixieFPS01-v1.0.Hap1.chr02.ver1.0.g017680'))
@@ -460,7 +460,6 @@ plot_pseudotime_heatmap
 
 
 
-
 library(monocle3)
 #library(SeuratWrappers)
 library(Seurat)
@@ -484,7 +483,7 @@ new.cluster.ids <- c(
   "2" = "Young_Mesophyll",#young
   "3" = "Young_Epidermis",
   "4" = "Mature_Epidermis",
-  "5" = "Guard_Cells",    
+  "5" = "Guard_Cells",
   "6" = "Senescent_Epidermis",
   "7" = "Companion_Cell",
   "8" = "Phloem_Parenchyma",
@@ -493,7 +492,7 @@ new.cluster.ids <- c(
   "11" = "Senescent_Epidermis",
   "12" = "Mature_Epidermis",
   "13" = "Vascular_Parenchyma",
-  "14" = "Xylem_Parenchyma",    
+  "14" = "Xylem_Parenchyma",
   "15" = "Senescent_Epidermis",#young
   "16" = "Senescent_Epidermis",#senescent
    "17" = "Mature_Mesophyll",#senescent
@@ -529,7 +528,7 @@ pdf("./plots_alevin/leaf_UMAP_refinedClusters.pdf", width=10, height=5)
 p1|p2
 dev.off()
 
-#subset exocarp
+#subset epidermis
 epidermis_cells <- subset(
   seurat_obj,
   subset = grepl("Epidermis", refined_cluster)
@@ -567,9 +566,9 @@ round(percent_tab, 2)
   NEWLEAF_2               31.18            32.68           36.15
   OLDLEAF_1               39.59            38.82           21.58
   OLDLEAF_2               44.51            33.42           22.07
-  
-  
-  
+
+
+
 a1 <- DimPlot(epidermis_cells, reduction = 'umap', group.by = 'refined_cluster', label = T)
 a2 <- DimPlot(epidermis_cells, reduction = 'umap', group.by = 'SCT_snn_res.0.6', label = T)
 
@@ -606,7 +605,7 @@ reacreate.partition <- as.factor(reacreate.partition)
 
 cds@clusters$UMAP$partitions <- reacreate.partition
 
-# Assign the cluster info 
+# Assign the cluster info
 
 list_cluster <- epidermis_cells@active.ident
 cds@clusters$UMAP$clusters <- list_cluster
@@ -690,9 +689,9 @@ deg_bcells <- graph_test(cds, neighbor_graph = 'principal_graph', cores = 4)
 write.csv(deg_bcells,"./ClusterAnnotation_alevin/pseudotime_epidermis_degs.csv")
 
 
-deg_bcells %>% 
-  arrange(q_value) %>% 
-  filter(status == 'OK') %>% 
+deg_bcells %>%
+  arrange(q_value) %>%
+  filter(status == 'OK') %>%
   head(20)
 
 FeaturePlot(epidermis_cells, features = c('VITVvi-vPixieFPS01-v1.0.Hap1.chr01.ver1.0.g004520', 'VITVvi-vPixieFPS01-v1.0.Hap1.chr02.ver1.0.g015000', 'VITVvi-vPixieFPS01-v1.0.Hap1.chr02.ver1.0.g017670','VITVvi-vPixieFPS01-v1.0.Hap1.chr02.ver1.0.g017680'))
@@ -752,7 +751,7 @@ new.cluster.ids <- c(
   "2" = "Young_Mesophyll",#young
   "3" = "Young_Epidermis",
   "4" = "Mature_Epidermis",
-  "5" = "Guard_Cells",    
+  "5" = "Guard_Cells",
   "6" = "Senescent_Epidermis",
   "7" = "Companion_Cell",
   "8" = "Phloem_Parenchyma",
@@ -761,7 +760,7 @@ new.cluster.ids <- c(
   "11" = "Senescent_Epidermis",
   "12" = "Mature_Epidermis",
   "13" = "Vascular_Parenchyma",
-  "14" = "Xylem_Parenchyma",    
+  "14" = "Xylem_Parenchyma",
   "15" = "Senescent_Epidermis",#young
   "16" = "Senescent_Epidermis",#senescent
    "17" = "Mature_Mesophyll",#senescent
@@ -787,7 +786,7 @@ seurat_obj$refined_cluster <- mapvalues(
 Idents(seurat_obj) <- seurat_obj$refined_cluster
 
 
-#subset exocarp
+#subset mesophyll
 mesophyll_cells <- subset(
   seurat_obj,
   subset = grepl("Mesophyll", refined_cluster)
@@ -818,13 +817,13 @@ tab <- table(mesophyll_cells$Tissue_Rep, mesophyll_cells$refined_cluster)
 percent_tab <- prop.table(tab, margin = 1) * 100
 
 round(percent_tab, 2)
-  
+
             Senescent_Mesophyll Mature_Mesophyll Young_Mesophyll
   NEWLEAF_1               24.28            35.31           40.41
   NEWLEAF_2               44.12            31.53           24.35
   OLDLEAF_1               37.64            35.29           27.07
   OLDLEAF_2               41.77            36.44           21.79
-  
+
 a1 <- DimPlot(mesophyll_cells, reduction = 'umap', group.by = 'refined_cluster', label = T)
 a2 <- DimPlot(mesophyll_cells, reduction = 'umap', group.by = 'SCT_snn_res.0.6', label = T)
 
@@ -861,7 +860,7 @@ reacreate.partition <- as.factor(reacreate.partition)
 
 cds@clusters$UMAP$partitions <- reacreate.partition
 
-# Assign the cluster info 
+# Assign the cluster info
 
 list_cluster <- mesophyll_cells@active.ident
 cds@clusters$UMAP$clusters <- list_cluster
@@ -942,9 +941,9 @@ deg_bcells <- graph_test(cds, neighbor_graph = 'principal_graph', cores = 4)
 write.csv(deg_bcells,"./ClusterAnnotation_alevin/pseudotime_mesophyll_degs.csv")
 
 
-deg_bcells %>% 
-  arrange(q_value) %>% 
-  filter(status == 'OK') %>% 
+deg_bcells %>%
+  arrange(q_value) %>%
+  filter(status == 'OK') %>%
   head(20)
 
 FeaturePlot(mesophyll_cells, features = c('VITVvi-vPixieFPS01-v1.0.Hap1.chr01.ver1.0.g004520', 'VITVvi-vPixieFPS01-v1.0.Hap1.chr02.ver1.0.g015000', 'VITVvi-vPixieFPS01-v1.0.Hap1.chr02.ver1.0.g017670','VITVvi-vPixieFPS01-v1.0.Hap1.chr02.ver1.0.g017680'))
@@ -998,7 +997,7 @@ new.cluster.ids <- c(
   "2" = "Calyx",
   "3" = "Calyptra",
   "4" = "Calyx",
-  "5" = "Ovary",    
+  "5" = "Ovary",
   "6" = "Ovary",
   "7" = "Xylem_Parenchyma",
   "8" = "Ovary",
@@ -1008,7 +1007,7 @@ new.cluster.ids <- c(
   "12" = "Epidermis",
   "13" = "Calyptra",
   "14" = "Vascular_Parenchyma",
-  "15" = "Calyptra",    
+  "15" = "Calyptra",
   "16" = "Calyptra",
   "17" = "Calyptra",
   "18" = "Calyx",
@@ -1018,7 +1017,7 @@ new.cluster.ids <- c(
   "22" = "Anther",
   "23" = "Germinating_Pollen",
   "24" = "Stigmatic_Papilla",
-  "25" = "Receptacle",    
+  "25" = "Receptacle",
   "26" = "Filament",
   "27" = "Ovary",
   "28" = "Calyptra",
@@ -1028,7 +1027,7 @@ new.cluster.ids <- c(
   "32" = "Anther",
   "33" = "Immature_Pollen",
   "34" = "Phloem_Parenchyma",
-  "35" = "Companion_Cell",    
+  "35" = "Companion_Cell",
   "36" = "Ovary",
   "37" = "Mature_Pollen",
   "38" = "Calyptra",
@@ -1058,7 +1057,7 @@ pdf("./plots_alevin/flower_UMAP_refinedClusters.pdf", width=10, height=5)
 p1|p2
 dev.off()
 
-#subset exocarp
+#subset pollen
 pollen_cells <- subset(
   seurat_obj,
   subset = grepl("Pollen", refined_cluster)
@@ -1076,7 +1075,7 @@ pollen_cells <- FindClusters(pollen_cells, resolution = 0.6)
 pollen_cells <- RunUMAP(pollen_cells, dims = 1:30, n.neighbors = 50)
 
 
-pollen_cells <- FindNeighbors(pollen_cells, dims = 1:30, k.param = 30) 
+pollen_cells <- FindNeighbors(pollen_cells, dims = 1:30, k.param = 30)
 # increase k.param for smoother connections
 pollen_cells <- RunUMAP(pollen_cells, dims = 1:30, n.neighbors = 40, min.dist = 0.4)
 
@@ -1098,7 +1097,7 @@ round(percent_tab, 2)
   FLOWER_1           38.07         48.29               9.83            3.81
   FLOWER_2           33.88         43.48              17.14            5.51
 
-  
+
 a1 <- DimPlot(pollen_cells, reduction = 'umap', group.by = 'refined_cluster', label = T)
 a2 <- DimPlot(pollen_cells, reduction = 'umap', group.by = 'SCT_snn_res.0.6', label = T)
 
@@ -1135,7 +1134,7 @@ reacreate.partition <- as.factor(reacreate.partition)
 
 cds@clusters$UMAP$partitions <- reacreate.partition
 
-# Assign the cluster info 
+# Assign the cluster info
 
 list_cluster <- pollen_cells@active.ident
 cds@clusters$UMAP$clusters <- list_cluster
@@ -1217,11 +1216,11 @@ deg_bcells <- graph_test(cds, neighbor_graph = 'principal_graph', cores = 4)
 write.csv(deg_bcells,"./ClusterAnnotation_alevin/pseudotime_pollen_degs.csv")
 
 
-deg_bcells %>% 
-  arrange(q_value) %>% 
-  filter(status == 'OK') %>% 
+deg_bcells %>%
+  arrange(q_value) %>%
+  filter(status == 'OK') %>%
   head(20)
- 
+
  pdf("./plots_alevin/Pseudotime_pollen_umap_degs.pdf", width=5, height=5)
 FeaturePlot(pollen_cells, features = c('VITVvi-vPixieFPS01-v1.0.Hap1.chr01.ver1.0.g008730', 'VITVvi-vPixieFPS01-v1.0.Hap1.chr01.ver1.0.g000610', 'VITVvi-vPixieFPS01-v1.0.Hap1.chr01.ver1.0.g006790','VITVvi-vPixieFPS01-v1.0.Hap1.chr01.ver1.0.g009340'))
 dev.off()
@@ -1243,14 +1242,14 @@ saveRDS(pollen_cells, "./alevin_seurat_clean/Pseudotime_Pollen.rds")
 
 
 #############
-#get genes associated with developmental stage along the pseudotime 
+#get genes associated with developmental stage along the pseudotime
 
 seu_obj<-readRDS("./alevin_seurat_clean/Pseudotime_Pollen.rds")
 
 deg_bcells<-read.csv("./ClusterAnnotation_alevin/pseudotime_pollen_degs.csv")
 
   seu_obj <- PrepSCTFindMarkers(seu_obj)
-  
+
   Idents(seu_obj) <- "refined_cluster"
 
 markers_stage <- FindAllMarkers(
@@ -1276,8 +1275,8 @@ write.csv(final_markers,"./ClusterAnnotation_alevin/pseudotime_pollen_stagesDEGs
 seu_obj<-readRDS("./alevin_seurat_clean/Pseudotime_Exocarp.rds")
 
 deg_bcells<-read.csv("./ClusterAnnotation_alevin/pseudotime_exocarp_degs.csv")
-  
-  
+
+
   DefaultAssay(seu_obj) <- "RNA"
 
 seu_obj <- NormalizeData(seu_obj)
@@ -1306,3 +1305,4 @@ final_markers <- markers_stage %>%
 
 
 write.csv(final_markers,"./ClusterAnnotation_alevin/pseudotime_exocarp_stagesDEGs.csv")
+```

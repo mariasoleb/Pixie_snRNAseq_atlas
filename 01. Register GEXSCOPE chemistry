@@ -1,6 +1,11 @@
+# Register GEXSCOPE Chemistry
 
+## Goal
 
-#remove preprocessed R1 to start again 
+Preprocess R1 reads from GEXSCOPE-V2 libraries to extract barcodes and UMIs from their non-contiguous positions, then register the custom chemistry in simpleaf.
+
+```bash
+#remove preprocessed R1 to start again
 # List of tissue folders
 folders=("FLOWER1" "FLOWER2" "NEWLEAF1" "NEWLEAF2" "OLDLEAF1" "OLDLEAF2" "STEM1" "STEM2" "ROOT1" "ROOT2")
 
@@ -21,4 +26,4 @@ simpleaf chemistry add \
   --name GEXSCOPE-V2-preprocessed \
   --geometry "1{b[27]u[12]}2{r:}" \
   --expected-ori fw
-
+```

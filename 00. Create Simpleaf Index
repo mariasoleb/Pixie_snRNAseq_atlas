@@ -1,3 +1,10 @@
+# Create Simpleaf Index
+
+## Goal
+
+Build a piscem/simpleaf reference index from the Pixie grapevine genome FASTA and GTF files for use in snRNA-seq quantification.
+
+```bash
 ## simpleaf alevin-fry
 
 export AF_SAMPLE_DIR=/your/directory
@@ -32,4 +39,4 @@ nohup simpleaf index \
 --rlen 151 \
 --threads 8 \
 --work-dir "$AF_SAMPLE_DIR/workdir.noindex" &
-
+```

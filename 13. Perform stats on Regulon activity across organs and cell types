@@ -1,3 +1,10 @@
+# Perform Stats on Regulon Activity Across Organs and Cell Types
+
+## Goal
+
+Test for regulons enriched in specific cell types or organs using linear models (controlling for the other factor), perform variance partitioning between organ and cell type, and generate volcano plots of regulon activity.
+
+```r
 library(dplyr)
 library(tidyr)
 library(purrr)
@@ -26,12 +33,12 @@ df_all <- left_join(reg_df, meta, by = "cell") %>%
     Organ = Tissue_Group,
     CellType = cluster_annotation
   )
-  
-  
+
+
   df_pb <- df_all %>%
   group_by(Organ, CellType, Tissue_Rep) %>%
   summarise(across(where(is.numeric), \(x) mean(x, na.rm = TRUE)), .groups = "drop")
-  
+
   regulon_cols <- df_pb %>% select(where(is.numeric)) %>% colnames()
 
 # 1️⃣ Aggregate mean activity per organ × cell type × replicate
@@ -68,7 +75,7 @@ compare_celltype <- function(target_cell) {
 
     # Find the coefficient corresponding to CellGroup (target vs Other)
     target_row <- grep(paste0("^CellGroup", target_cell, "$"), rownames(coef_tab))
-    
+
     if(length(target_row) == 1) {
       effect <- coef_tab[target_row, "Estimate"]
       pval   <- coef_tab[target_row, "Pr(>|t|)"]
@@ -99,7 +106,6 @@ lm_results %>% filter(target_cell == "Companion_Cell") %>% arrange(padj)
 
 
 
-
   library(ggplot2)
 library(patchwork)
 library(dplyr)
@@ -108,34 +114,34 @@ sig_thresh <- -log10(0.00000001)
 
 # Function to create volcano plot for a cell type
 make_volcano <- function(df, cell_name, title_name) {
-  
+
   df <- df %>%
     mutate(
       logpadj = -log10(padj),
       sig = logpadj > sig_thresh  # TRUE if above threshold
     )
-  
+
   ggplot(df, aes(x = effect, y = logpadj)) +
     geom_point(aes(color = sig), alpha = 0.6) +
     scale_color_manual(values = c("FALSE" = "steelblue", "TRUE" = "red")) +
-    
+
     # vertical and horizontal dashed lines
     geom_vline(xintercept = 0, linetype = "dashed", color = "grey50") +
     geom_hline(yintercept = sig_thresh, linetype = "dashed", color = "red") +
-    
+
     # label for the dashed line
-    annotate("text", x = min(df$effect, na.rm = TRUE), 
-             y = sig_thresh + 0.5, 
-             label = "p < 1e-8", 
+    annotate("text", x = min(df$effect, na.rm = TRUE),
+             y = sig_thresh + 0.5,
+             label = "p < 1e-8",
              color = "red", hjust = 0, size = 4) +
-    
+
     theme_minimal(base_size = 14) +
     labs(
       title = paste0(title_name, ": Regulon Activity Volcano Plot"),
       x = paste0("Effect size (", cell_name, " vs Other)"),
       y = "-log10(adjusted p-value)"
     ) +
-    
+
     # remove legend
     theme(
       plot.title = element_text(hjust = 0.5),
@@ -273,5 +279,4 @@ enriched_celltype <- lm_results %>%
   arrange(desc(n_regulons))
 
 enriched_celltype
-
-
+```

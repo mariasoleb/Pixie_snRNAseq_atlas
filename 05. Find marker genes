@@ -1,3 +1,10 @@
+# Find Marker Genes
+
+## Goal
+
+Identify cluster marker genes per tissue using the Wilcoxon test, annotate them with functional information from the Pixie genome, and visualize organ-specific marker gene expression as scaled heatmaps.
+
+```r
 library(Seurat)
 
 ###use RNA assay for FindAllClusters
@@ -22,7 +29,7 @@ Pixie_ann<-read.delim("VITVvi_vPixieFPS01_v1.0.pseudomolecules.all.functional.tx
 # Remove the ".pXX" at the end of each SeqName string
 Pixie_ann$SeqName <- sub("\\.p\\d+$", "", Pixie_ann$SeqName)
 # Replace all hyphens with underscores
-Pixie_ann$SeqName <- gsub("_", "-", Pixie_ann$SeqName)  
+Pixie_ann$SeqName <- gsub("_", "-", Pixie_ann$SeqName)
 # Step 2: Remove duplicate SeqName entries
 Pixie_ann <- Pixie_ann[!duplicated(Pixie_ann$SeqName), ]
 
@@ -55,7 +62,7 @@ leaf_marker_list <- list(
       Companion_Cell = c("VITVvi-vPixieFPS01-v1.0.Hap2.chr18.ver1.0.g463640", "VITVvi-vPixieFPS01-v1.0.Hap1.chr01.ver1.0.g001590","VITVvi-vPixieFPS01-v1.0.Hap1.chr18.ver1.0.g217640")
 )
 
-#flower 
+#flower
 flower_marker_list <- list(
 
 Vascular_Parenchyma = c("VITVvi-vPixieFPS01-v1.0.Hap1.chr04.ver1.0.g044260","VITVvi-vPixieFPS01-v1.0.Hap2.chr04.ver1.0.g293190"),
@@ -102,8 +109,7 @@ berry_marker_list <- list(
 
 
 
-
-#stem 
+#stem
 
 
 # First, define your marker list in a named list
@@ -127,7 +133,7 @@ stem_marker_list <- list(
 )
 
 
-#bud 
+#bud
 
 
 # First, define your marker list in a named list
@@ -153,7 +159,7 @@ bud_marker_list <- list(
 
 # First, define your marker list in a named list
 root_marker_list <- list(
- 
+
   Endodermis = c("VITVvi-vPixieFPS01-v1.0.Hap2.chr05.ver1.0.g298210", "VITVvi-vPixieFPS01-v1.0.Hap1.chr15.ver1.0.g184690", "VITVvi-vPixieFPS01-v1.0.Hap1.chr17.ver1.0.g206500"),
   Cortex = c("VITVvi-vPixieFPS01-v1.0.Hap1.chr09.ver1.0.g115540","VITVvi-vPixieFPS01-v1.0.Hap2.chr09.ver1.0.g360900"),
     Xylem_Parenchyma = c("VITVvi-vPixieFPS01-v1.0.Hap1.chr03.ver1.0.g034960", "VITVvi-vPixieFPS01-v1.0.Hap2.chr07.ver1.0.g332760", "VITVvi-vPixieFPS01-v1.0.Hap2.chr03.ver1.0.g280490"),
@@ -168,7 +174,7 @@ root_marker_list <- list(
 
   Peripheral_Cells = c("VITVvi-vPixieFPS01-v1.0.Hap1.chr14.ver1.0.g171030", "VITVvi-vPixieFPS01-v1.0.Hap2.chr14.ver1.0.g416080"),
     Columella_Cells = c("VITVvi-vPixieFPS01-v1.0.Hap2.chr07.ver1.0.g323470", "VITVvi-vPixieFPS01-v1.0.Hap1.chr06.ver1.0.g064430"),
-    
+
     Phloem_Parenchyma = c("VITVvi-vPixieFPS01-v1.0.Hap1.chr17.ver1.0.g211600","VITVvi-vPixieFPS01-v1.0.Hap1.chr08.ver1.0.g101280","VITVvi-vPixieFPS01-v1.0.Hap2.chr08.ver1.0.g346510"),
       Developing_Sieve_Elements = c("VITVvi-vPixieFPS01-v1.0.Hap1.chr10.ver1.0.g120750", "VITVvi-vPixieFPS01-v1.0.Hap2.chr10.ver1.0.g366630"),
       Companion_Cell = c("VITVvi-vPixieFPS01-v1.0.Hap1.chr01.ver1.0.g001560", "VITVvi-vPixieFPS01-v1.0.Hap2.chr17.ver1.0.g459800")
@@ -180,8 +186,8 @@ seurat_obj$Organ <- factor(
   levels = c("Leaf", "Flower", "Berry", "Stem", "Bud", "Root")
 )
 
-library(Seurat)  
-library(stringr)  
+library(Seurat)
+library(stringr)
 library(dplyr)
 
 
@@ -201,33 +207,33 @@ library(dplyr)
 library(pheatmap)
 
 make_heatmap <- function(seurat_obj, markers, organ_name) {
-  
+
   # Subset organ
   obj <- subset(seurat_obj, Organ == organ_name)
-  
+
   # Fix weird dash
   markers <- lapply(markers, function(x) gsub("−", "-", x))
-  
+
   # Flatten gene list
   genes <- unique(unlist(markers))
-  
+
   # Keep only genes present
   genes <- genes[genes %in% rownames(obj)]
-  
+
   # Set identities
   Idents(obj) <- "cluster_annotation"
-  
+
   # Average expression (pseudobulk)
   avg <- AverageExpression(obj, features = genes, return.seurat = FALSE)
-  
+
   mat <- avg$SCT  # adjust if using RNA instead
-  
+
   # Scale per gene (row-wise z-score)
   mat_scaled <- t(scale(t(mat)))
-  
+
   # Remove NA rows
   mat_scaled <- mat_scaled[complete.cases(mat_scaled), ]
-  
+
   return(mat_scaled)
 }
 
@@ -252,35 +258,35 @@ library(gridExtra)
 # Function to generate scaled matrix per organ
 # ------------------------------
 make_heatmap <- function(seurat_obj, markers, organ_name) {
-  
+
   # Subset organ
   obj <- subset(seurat_obj, Organ == organ_name)
-  
+
   # Flatten gene list
   genes <- unique(unlist(markers))
-  
+
   # Keep only genes present in Seurat
   genes <- genes[genes %in% rownames(obj)]
   if(length(genes) == 0) return(NULL)
-  
+
   # Set cluster identities
   Idents(obj) <- "cluster_annotation"
-  
+
   # Average expression per cluster (pseudobulk)
   avg <- AverageExpression(obj, features = genes, return.seurat = FALSE)
   mat <- avg$SCT  # adjust if using RNA assay
-  
+
   # Scale per gene (row-wise z-score)
   mat_scaled <- t(scale(t(mat)))
   mat_scaled <- mat_scaled[complete.cases(mat_scaled), ]
-  
+
   # Order genes by the cluster where they peak (diagonal pattern)
   gene_order <- apply(mat_scaled, 1, function(x) which.max(x))
   mat_scaled <- mat_scaled[order(gene_order), ]
-  
+
   # Rename rows to only keep gXXXXXX for heatmap
   rownames(mat_scaled) <- str_extract(rownames(mat_scaled), "g[0-9]+")
-  
+
   return(mat_scaled)
 }
 
@@ -289,7 +295,7 @@ make_heatmap <- function(seurat_obj, markers, organ_name) {
 # ------------------------------
 plot_heatmap <- function(mat, title) {
   if(is.null(mat) || nrow(mat) == 0) return(NULL)
-  
+
   p <- pheatmap(
     mat,
     cluster_rows = FALSE,
@@ -303,7 +309,7 @@ plot_heatmap <- function(mat, title) {
     legend = FALSE,
     silent = TRUE
   )
-  
+
   return(p$gtable)
 }
 
@@ -337,4 +343,4 @@ grobs <- grobs[!sapply(grobs, is.null)]  # remove NULLs if any organ had no mark
 pdf("plots_alevin/Marker_Heatmaps_By_Organ_gXXXXXX.pdf", width = 2, height = 18)
 grid.arrange(grobs = grobs, ncol = 1)
 dev.off()
-
+```

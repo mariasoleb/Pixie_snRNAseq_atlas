@@ -1,3 +1,10 @@
+# Pseudobulk Analysis
+
+## Goal
+
+Perform pseudobulk differential expression analysis on companion cells across organs using DESeq2, visualize organ-specific gene expression patterns using PCA and heatmaps, and identify organ-specific genes with a likelihood ratio test (LRT) approach.
+
+```r
 library(Seurat)
 library(DESeq2)
 #library(tidyverse)
@@ -15,7 +22,7 @@ seu<-JoinLayers(seu)
 
 DefaultAssay(seu)<-"RNA"
 
-cts <- AggregateExpression(seu, 
+cts <- AggregateExpression(seu,
                            group.by = c("Tissue_Rep"),
                            assays = 'RNA',
                            # layer = "counts",
@@ -68,7 +75,7 @@ resultsNames(dds)
 library(ggplot2)
 
 # Step 1: Variance Stabilizing Transformation (VST)
-vsd <- vst(dds, blind = FALSE)  
+vsd <- vst(dds, blind = FALSE)
 
 # Step 2: Extract PCA data
 pcaData <- plotPCA(vsd, intgroup = c("Tissue_Group"), returnData = TRUE)
@@ -87,7 +94,7 @@ ggplot(pcaData, aes(PC1, PC2, color = Tissue_Group, label= name)) +
   geom_text(aes(label = name), vjust = -0.5, size = 3) +  # Add this line
   xlab(paste0("PC1: ", percentVar[1], "% variance")) +
   ylab(paste0("PC2: ", percentVar[2], "% variance")) +
-  theme_minimal() 
+  theme_minimal()
 
 dev.off()
 
@@ -139,7 +146,7 @@ Pixie_ann<-read.delim("VITVvi_vPixieFPS01_v1.0.pseudomolecules.all.functional.tx
 # Remove the ".pXX" at the end of each SeqName string
 Pixie_ann$SeqName <- sub("\\.p\\d+$", "", Pixie_ann$SeqName)
 # Replace all hyphens with underscores
-Pixie_ann$SeqName <- gsub("_", "-", Pixie_ann$SeqName)  
+Pixie_ann$SeqName <- gsub("_", "-", Pixie_ann$SeqName)
 # Step 2: Remove duplicate SeqName entries
 Pixie_ann <- Pixie_ann[!duplicated(Pixie_ann$SeqName), ]
 
@@ -233,7 +240,7 @@ organ_means <- t(apply(expr, 1, function(x) {
 
 organ_means_sig <- organ_means[sig_genes, ]
 
-#scale by row 
+#scale by row
 mat <- as.matrix(organ_means_sig)
 
 # z-score per gene
@@ -262,7 +269,7 @@ Pixie_ann<-read.delim("VITVvi_vPixieFPS01_v1.0.pseudomolecules.all.functional.tx
 # Remove the ".pXX" at the end of each SeqName string
 Pixie_ann$SeqName <- sub("\\.p\\d+$", "", Pixie_ann$SeqName)
 # Replace all hyphens with underscores
-Pixie_ann$SeqName <- gsub("_", "-", Pixie_ann$SeqName)  
+Pixie_ann$SeqName <- gsub("_", "-", Pixie_ann$SeqName)
 # Step 2: Remove duplicate SeqName entries
 Pixie_ann <- Pixie_ann[!duplicated(Pixie_ann$SeqName), ]
 
@@ -270,7 +277,4 @@ Pixie_ann <- Pixie_ann[!duplicated(Pixie_ann$SeqName), ]
 mat_scaled<-merge(mat_scaled, Pixie_ann, by="SeqName")
 
 write.csv(mat_scaled, "plots_alevin/XP_pseudobulk_heatmap_scaled_genes_LRT.csv", row.names = FALSE)
-
-
-
-
+```

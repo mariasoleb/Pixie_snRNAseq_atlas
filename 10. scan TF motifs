@@ -1,4 +1,10 @@
+# Scan TF Motifs
 
+## Goal
+
+Extract promoter sequences (2 kb upstream, 200 bp downstream of TSS) from the Pixie genome and scan them for TF binding motifs from the JASPAR 2024 plant database using FIMO.
+
+```bash
 wget https://jaspar.genereg.net/download/data/2024/CORE/JASPAR2024_CORE_plants_non-redundant_pfms_meme.txt
 
 
@@ -52,12 +58,11 @@ head ./ref/promoters_2kb_200bp.fa
 
 
 
-#scan motifs 
+#scan motifs
 
 ./Tools/meme-5.5.9/meme/bin/fimo \
   --oc fimo_out \
   --thresh 1e-4 \
   ./JASPAR2024_CORE_plants_non-redundant_pfms_meme.txt \
   ./ref/promoters_2kb_200bp.fa
-
-
+```
