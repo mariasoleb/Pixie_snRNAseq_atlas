@@ -1,0 +1,1308 @@
+
+library(monocle3)
+#library(SeuratWrappers)
+library(Seurat)
+library(ggplot2)
+library(tidyverse)
+library(plyr)
+
+
+seurat_obj<-readRDS("./alevin_seurat_clean/Berry_SCT_Ann_noChl_simpler.rds")
+
+new.cluster.ids <- c(
+  "0" = "Vascular_Parenchyma",
+  "1" = "Green_Exocarp",
+  "2" = "Ripening_Mesocarp",
+  "3" = "Green_Mesocarp",
+  "4" = "Mature_Exocarp",
+  "5" = "Mature_Mesocarp",    
+  "6" = "Epidermis",
+  "7" = "Green_Mesocarp",
+  "8" = "Ripening_Exocarp",
+   "9" = "Xylem_Parenchyma",
+  "10" = "Phloem_Parenchyma",
+  "11" = "Vascular_Parenchyma",
+  "12" = "Ripening_Exocarp",
+  "13" = "Green_Exocarp",
+  "14" = "Ripening_Exocarp",    
+  "15" = "Companion_Cell"
+)
+#- Bogs et al., 2006, _Plant Physiology_, “Flavonoid pathway gene expression in grape berry skin and pulp.”
+    
+#- Castellarin et al., 2007, _Plant Physiology_, showing **skin-specific upregulation of CHS during veraison**.
+
+seurat_obj$refined_cluster <- mapvalues(
+  seurat_obj$SCT_snn_res.1,
+  from = names(new.cluster.ids),
+  to = new.cluster.ids
+)
+
+Idents(seurat_obj) <- seurat_obj$refined_cluster
+
+
+p1<- DimPlot(seurat_obj, reduction = 'umap', group.by = 'refined_cluster', label=T)
+
+p2<- DimPlot(seurat_obj, reduction = 'umap', group.by = 'cluster_annotation', label=T)
+
+p3<- DimPlot(seurat_obj, reduction = 'umap', group.by = 'Tissue_Rep', label=T)
+
+pdf("./plots_alevin/berry_UMAP_refinedClusters.pdf", width=10, height=5)
+p1|p2
+dev.off()
+
+#subset exocarp
+exocarp_cells <- subset(
+  seurat_obj,
+  subset = grepl("Exocarp", refined_cluster)
+)
+#dim(exocarp_cells)
+#[1] 26882  2922
+
+
+
+# pre-processing using seurat
+exocarp_cells <- NormalizeData(exocarp_cells)
+exocarp_cells <- FindVariableFeatures(exocarp_cells)
+exocarp_cells <- ScaleData(exocarp_cells)
+exocarp_cells <- RunPCA(exocarp_cells)
+exocarp_cells <- FindNeighbors(exocarp_cells, dims = 1:30)
+exocarp_cells <- FindClusters(exocarp_cells, resolution = 0.9)
+exocarp_cells <- RunUMAP(exocarp_cells, dims = 1:30, n.neighbors = 50)
+
+table(exocarp_cells$Tissue_Rep, exocarp_cells$refined_cluster)
+
+                Green_Exocarp Mature_Exocarp Ripening_Exocarp
+  Green_1                 726             18               83
+  Green_2                 924             21              136
+  Harvest_1                73            476              378
+  Harvest_2                34            370              245
+  PostHarvest_1            39            411              217
+  PostHarvest_2             5             84               62
+
+
+#express in %
+
+tab <- table(exocarp_cells$Tissue_Rep, exocarp_cells$refined_cluster)
+
+percent_tab <- prop.table(tab, margin = 1) * 100
+
+round(percent_tab, 2)
+
+                Green_Exocarp Mature_Exocarp Ripening_Exocarp
+  Green_1               87.79           2.18            10.04
+  Green_2               85.48           1.94            12.58
+  Harvest_1              7.87          51.35            40.78
+  Harvest_2              5.24          57.01            37.75
+  PostHarvest_1          5.85          61.62            32.53
+  PostHarvest_2          3.31          55.63            41.06
+  
+  
+  
+a1 <- DimPlot(exocarp_cells, reduction = 'umap', group.by = 'refined_cluster', label = T)
+a2 <- DimPlot(exocarp_cells, reduction = 'umap', group.by = 'SCT_snn_res.0.9', label = T)
+  pdf("./plots_alevin/Pseudotime_exocarp_umap_clusters.pdf", width=7, height=5)
+a1|a2
+dev.off()
+# convert into cds object
+
+library(monocle3)
+
+# counts matrix (raw counts!)
+counts <- GetAssayData(exocarp_cells, slot = "counts")
+
+# cell metadata
+cell_metadata <- exocarp_cells@meta.data
+
+# gene metadata
+gene_metadata <- data.frame(
+  gene_short_name = rownames(counts),
+  row.names = rownames(counts)
+)
+
+cds <- new_cell_data_set(
+  counts,
+  cell_metadata = cell_metadata,
+  gene_metadata = gene_metadata
+)
+
+# assign paritions
+reacreate.partition <- c(rep(1,length(cds@colData@rownames)))
+names(reacreate.partition) <- cds@colData@rownames
+reacreate.partition <- as.factor(reacreate.partition)
+
+
+cds@clusters$UMAP$partitions <- reacreate.partition
+
+# Assign the cluster info 
+
+list_cluster <- exocarp_cells@active.ident
+cds@clusters$UMAP$clusters <- list_cluster
+
+
+# Assign UMAP coordinate - cell embeddings
+
+cds@int_colData@listData$reducedDims$UMAP <- exocarp_cells@reductions$umap@cell.embeddings
+
+cluster.before.trajectory <- plot_cells(cds,
+           color_cells_by = 'cluster',
+           label_groups_by_cluster = FALSE,
+           group_label_size = 5) +
+  theme(legend.position = "right")
+
+cluster.names <- plot_cells(cds,
+           color_cells_by = "refined_cluster",
+           label_groups_by_cluster = FALSE,
+           group_label_size = 5) +
+  scale_color_manual(values = c('red', 'blue','cyan')) +
+  theme(legend.position = "right")
+
+#cluster.before.trajectory | cluster.names
+
+tab <- table(cds$SCT_snn_res.0.9, cds$refined_cluster)
+
+percent_tab <- prop.table(tab, margin = 1) * 100
+
+round(percent_tab, 2)
+
+    Green_Exocarp Mature_Exocarp Ripening_Exocarp
+  0         86.38           1.76            11.86
+  1         86.21           2.40            11.39
+  2          5.98          12.20            81.82
+  3          6.53          78.89            14.57
+  4          8.29          86.80             4.91
+  5          4.39          81.19            14.42
+  6          0.00           0.00           100.00
+# ...3. Learn trajectory graph ------------------------
+cds <- learn_graph(cds, use_partition = FALSE)
+
+plot_cells(cds,
+           color_cells_by = 'refined_cluster',
+           label_groups_by_cluster = FALSE,
+           label_branch_points = FALSE,
+           label_roots = FALSE,
+           label_leaves = FALSE,
+           group_label_size = 5)
+
+
+cds <- order_cells(cds, reduction_method = 'UMAP', root_cells = colnames(cds[,clusters(cds) == 0]))# change '0' withe the cluster wiht lowest pseudotime
+
+plot_cells(cds,
+           color_cells_by = 'pseudotime',
+           label_groups_by_cluster = FALSE,
+           label_branch_points = FALSE,
+           label_roots = FALSE,
+           label_leaves = FALSE)
+
+# cells ordered by monocle3 pseudotime
+
+pseudotime(cds)
+cds$monocle3_pseudotime <- pseudotime(cds)
+data.pseudo <- as.data.frame(colData(cds))
+
+  pdf("./plots_alevin/Pseudotime_exocarp_barplot.pdf", width=5, height=5)
+
+ggplot(data.pseudo, aes(monocle3_pseudotime, reorder(refined_cluster, monocle3_pseudotime, median), fill = refined_cluster)) +
+  geom_boxplot()
+
+dev.off()
+
+
+# ...5. Finding genes that change as a function of pseudotime --------------------
+deg_bcells <- graph_test(cds, neighbor_graph = 'principal_graph', cores = 4)
+
+write.csv(deg_bcells,"./ClusterAnnotation_alevin/pseudotime_exocarp_degs.csv")
+
+
+deg_bcells %>% 
+  arrange(q_value) %>% 
+  filter(status == 'OK') %>% 
+  head(20)
+
+FeaturePlot(exocarp_cells, features = c('VITVvi-vPixieFPS01-v1.0.Hap1.chr01.ver1.0.g004520', 'VITVvi-vPixieFPS01-v1.0.Hap1.chr02.ver1.0.g015000', 'VITVvi-vPixieFPS01-v1.0.Hap1.chr02.ver1.0.g017670','VITVvi-vPixieFPS01-v1.0.Hap1.chr02.ver1.0.g017680'))
+
+
+# visualizing pseudotime in seurat
+
+exocarp_cells$pseudotime <- pseudotime(cds)
+Idents(exocarp_cells) <- exocarp_cells$refined_cluster
+
+  pdf("./plots_alevin/Pseudotime_exocarp_umap_pseudot.pdf", width=5, height=5)
+FeaturePlot(exocarp_cells, features = "pseudotime", label = T)
+dev.off()
+
+
+saveRDS(exocarp_cells, "./alevin_seurat_clean/Pseudotime_Exocarp.rds")
+
+####################################################################
+#subset mesocarp
+mesocarp_cells <- subset(
+  seurat_obj,
+  subset = grepl("Mesocarp", refined_cluster)
+)
+#dim(mesocarp_cells)
+#[1] 26882  6454
+
+#cds <- as.cell_data_set(mesocarp_cells)
+
+# transfer metadata
+#colData(cds)$cell_type <- mesocarp_cells$refined_cluster
+
+
+# pre-processing using seurat
+mesocarp_cells <- NormalizeData(mesocarp_cells)
+mesocarp_cells <- FindVariableFeatures(mesocarp_cells)
+mesocarp_cells <- ScaleData(mesocarp_cells)
+mesocarp_cells <- RunPCA(mesocarp_cells)
+mesocarp_cells <- FindNeighbors(mesocarp_cells, dims = 1:30)
+mesocarp_cells <- FindClusters(mesocarp_cells, resolution = 0.6)
+mesocarp_cells <- RunUMAP(mesocarp_cells, dims = 1:30, n.neighbors = 50)
+
+table(mesocarp_cells$Tissue_Rep, mesocarp_cells$refined_cluster)
+
+
+                Ripening_Mesocarp Green_Mesocarp Mature_Mesocarp
+  Green_1                     445            984               3
+  Green_2                     592           1162               3
+  Harvest_1                   197             55             412
+  Harvest_2                   118             35             294
+  PostHarvest_1               216             68             383
+  PostHarvest_2                29              8              70
+
+
+#express in %
+
+tab <- table(mesocarp_cells$Tissue_Rep, mesocarp_cells$refined_cluster)
+
+percent_tab <- prop.table(tab, margin = 1) * 100
+
+round(percent_tab, 2)
+
+
+                Ripening_Mesocarp Green_Mesocarp Mature_Mesocarp
+  Green_1                   31.08          68.72            0.21
+  Green_2                   33.69          66.14            0.17
+  Harvest_1                 29.67           8.28           62.05
+  Harvest_2                 26.40           7.83           65.77
+  PostHarvest_1             32.38          10.19           57.42
+  PostHarvest_2             27.10           7.48           65.42
+
+  
+  
+  
+a1 <- DimPlot(mesocarp_cells, reduction = 'umap', group.by = 'refined_cluster', label = T)
+a2 <- DimPlot(mesocarp_cells, reduction = 'umap', group.by = 'SCT_snn_res.0.6', label = T)
+
+  pdf("./plots_alevin/Pseudotime_mesocarp_umap_clusters.pdf", width=7, height=5)
+a1|a2
+dev.off()
+# convert into cds object
+
+library(monocle3)
+
+# counts matrix (raw counts!)
+counts <- GetAssayData(mesocarp_cells, slot = "counts")
+
+# cell metadata
+cell_metadata <- mesocarp_cells@meta.data
+
+# gene metadata
+gene_metadata <- data.frame(
+  gene_short_name = rownames(counts),
+  row.names = rownames(counts)
+)
+
+cds <- new_cell_data_set(
+  counts,
+  cell_metadata = cell_metadata,
+  gene_metadata = gene_metadata
+)
+
+# assign paritions
+reacreate.partition <- c(rep(1,length(cds@colData@rownames)))
+names(reacreate.partition) <- cds@colData@rownames
+reacreate.partition <- as.factor(reacreate.partition)
+
+
+cds@clusters$UMAP$partitions <- reacreate.partition
+
+# Assign the cluster info 
+
+list_cluster <- mesocarp_cells@active.ident
+cds@clusters$UMAP$clusters <- list_cluster
+
+
+# Assign UMAP coordinate - cell embeddings
+
+cds@int_colData@listData$reducedDims$UMAP <- mesocarp_cells@reductions$umap@cell.embeddings
+
+cluster.before.trajectory <- plot_cells(cds,
+           color_cells_by = 'cluster',
+           label_groups_by_cluster = FALSE,
+           group_label_size = 5) +
+  theme(legend.position = "right")
+
+cluster.names <- plot_cells(cds,
+           color_cells_by = "refined_cluster",
+           label_groups_by_cluster = FALSE,
+           group_label_size = 5) +
+  scale_color_manual(values = c('red', 'blue')) +
+  theme(legend.position = "right")
+
+#cluster.before.trajectory | cluster.names
+
+tab <- table(cds$SCT_snn_res.0.9, cds$refined_cluster)
+
+percent_tab <- prop.table(tab, margin = 1) * 100
+
+round(percent_tab, 2)
+
+    Ripening_Mesocarp Green_Mesocarp Mature_Mesocarp
+  0              2.35          97.35            0.30
+  1             47.03          52.72            0.25
+  2             15.01           9.38           75.60
+  3             29.20          10.09           60.70
+  4             67.97          31.56            0.47
+  5             83.51           1.08           15.41
+  6              2.01           0.67           97.32
+  7             29.33          62.67            8.00
+
+# ...3. Learn trajectory graph ------------------------
+cds <- learn_graph(cds, use_partition = FALSE)
+
+plot_cells(cds,
+           color_cells_by = 'refined_cluster',
+           label_groups_by_cluster = FALSE,
+           label_branch_points = FALSE,
+           label_roots = FALSE,
+           label_leaves = FALSE,
+           group_label_size = 5)
+
+
+cds <- order_cells(cds, reduction_method = 'UMAP', root_cells = colnames(cds[,clusters(cds) == 0]))# change '0' withe the cluster wiht lowest pseudotime
+
+plot_cells(cds,
+           color_cells_by = 'pseudotime',
+           label_groups_by_cluster = FALSE,
+           label_branch_points = FALSE,
+           label_roots = FALSE,
+           label_leaves = FALSE)
+
+# cells ordered by monocle3 pseudotime
+
+pseudotime(cds)
+cds$monocle3_pseudotime <- pseudotime(cds)
+data.pseudo <- as.data.frame(colData(cds))
+
+  pdf("./plots_alevin/Pseudotime_mesocarp_barplot.pdf", width=5, height=5)
+ggplot(data.pseudo, aes(monocle3_pseudotime, reorder(refined_cluster, monocle3_pseudotime, median), fill = refined_cluster)) +
+  geom_boxplot()
+
+dev.off()
+
+
+# ...5. Finding genes that change as a function of pseudotime --------------------
+deg_bcells <- graph_test(cds, neighbor_graph = 'principal_graph', cores = 4)
+
+write.csv(deg_bcells,"./ClusterAnnotation_alevin/pseudotime_mesocarp_degs.csv")
+
+
+deg_bcells %>% 
+  arrange(q_value) %>% 
+  filter(status == 'OK') %>% 
+  head(20)
+
+FeaturePlot(exocarp_cells, features = c('VITVvi-vPixieFPS01-v1.0.Hap1.chr01.ver1.0.g004520', 'VITVvi-vPixieFPS01-v1.0.Hap1.chr02.ver1.0.g015000', 'VITVvi-vPixieFPS01-v1.0.Hap1.chr02.ver1.0.g017670','VITVvi-vPixieFPS01-v1.0.Hap1.chr02.ver1.0.g017680'))
+
+
+# visualizing pseudotime in seurat
+
+mesocarp_cells$pseudotime <- pseudotime(cds)
+Idents(mesocarp_cells) <- mesocarp_cells$refined_cluster
+
+
+  pdf("./plots_alevin/Pseudotime_mesocarp_umap_pseudot.pdf", width=5, height=5)
+FeaturePlot(mesocarp_cells, features = "pseudotime", label = T)
+dev.off()
+
+
+saveRDS(mesocarp_cells, "./alevin_seurat_clean/Pseudotime_Mesocarp.rds")
+
+
+deg_sig <- deg_bcells %>%
+  dplyr::filter(q_value < 0.05, status == "OK") %>%
+  arrange(q_value)
+
+top_genes <- deg_sig$gene_short_name[1:50]
+
+  pdf("./plots_alevin/Pseudotime_mesocarp_heatmap_pseudot.pdf", width=10, height=10)
+plot_genes_in_pseudotime(
+  cds[top_genes, ],
+  color_cells_by = "refined_cluster",
+  min_expr = 0.5
+)
+dev.off()
+
+# Example: top 200 significant genes
+top_genes <- deg_sig %>%
+  filter(status == "OK") %>%
+  arrange(q_value) %>%
+  slice(1:200) %>%
+  pull(gene_short_name)
+
+# make sure these exist in the CDS
+top_genes <- intersect(top_genes, rownames(cds))
+
+# subset CDS
+cds_subset <- cds[top_genes, ]
+
+plot_pseudotime_heatmap
+
+
+
+
+
+library(monocle3)
+#library(SeuratWrappers)
+library(Seurat)
+library(ggplot2)
+library(tidyverse)
+library(plyr)
+
+
+seurat_obj<-readRDS("./alevin_seurat_clean/Leaves_SCT_Ann.rds")
+
+tab <- table(seurat_obj$Tissue_Rep, seurat_obj$SCT_snn_res.1)
+
+percent_tab <- prop.table(tab, margin = 1) * 100
+
+round(percent_tab, 2)
+
+
+new.cluster.ids <- c(
+  "0" = "Senescent_Mesophyll",#senescent
+  "1" = "Mature_Mesophyll",
+  "2" = "Young_Mesophyll",#young
+  "3" = "Young_Epidermis",
+  "4" = "Mature_Epidermis",
+  "5" = "Guard_Cells",    
+  "6" = "Senescent_Epidermis",
+  "7" = "Companion_Cell",
+  "8" = "Phloem_Parenchyma",
+   "9" = "Companion_Cell",
+  "10" = "Senescent_Epidermis",#senescent
+  "11" = "Senescent_Epidermis",
+  "12" = "Mature_Epidermis",
+  "13" = "Vascular_Parenchyma",
+  "14" = "Xylem_Parenchyma",    
+  "15" = "Senescent_Epidermis",#young
+  "16" = "Senescent_Epidermis",#senescent
+   "17" = "Mature_Mesophyll",#senescent
+  "18" = "Mature_Epidermis",
+  "19" = "Senescent_Mesophyll",
+  "20" = "Senescent_Mesophyll",
+  "21" = "Vascular_Parenchyma",
+  "22" = "Young_Epidermis",    #young
+  "23" = "Vascular_Parenchyma",
+  "24" = "Mature_Epidermis",    #young
+  "25" = "Companion_Cell",
+    "26" = "Vascular_Parenchyma",
+    "27" = "Vascular_Parenchyma"
+)
+
+
+seurat_obj$refined_cluster <- mapvalues(
+  seurat_obj$SCT_snn_res.1,
+  from = names(new.cluster.ids),
+  to = new.cluster.ids
+)
+
+Idents(seurat_obj) <- seurat_obj$refined_cluster
+
+
+p1<- DimPlot(seurat_obj, reduction = 'umap', group.by = 'refined_cluster', label=T)
+
+p2<- DimPlot(seurat_obj, reduction = 'umap', group.by = 'cluster_annotation', label=T)
+
+p3<- DimPlot(seurat_obj, reduction = 'umap', group.by = 'Tissue_Rep', label=T)
+
+pdf("./plots_alevin/leaf_UMAP_refinedClusters.pdf", width=10, height=5)
+p1|p2
+dev.off()
+
+#subset exocarp
+epidermis_cells <- subset(
+  seurat_obj,
+  subset = grepl("Epidermis", refined_cluster)
+)
+
+
+
+# pre-processing using seurat
+epidermis_cells <- NormalizeData(epidermis_cells)
+epidermis_cells <- FindVariableFeatures(epidermis_cells)
+epidermis_cells <- ScaleData(epidermis_cells)
+epidermis_cells <- RunPCA(epidermis_cells)
+epidermis_cells <- FindNeighbors(epidermis_cells, dims = 1:30)
+epidermis_cells <- FindClusters(epidermis_cells, resolution = 0.6)
+epidermis_cells <- RunUMAP(epidermis_cells, dims = 1:30, n.neighbors = 50)
+
+table(epidermis_cells$Tissue_Rep, epidermis_cells$refined_cluster)
+
+            Senescent_Epidermis Mature_Epidermis Young_Epidermis
+  NEWLEAF_1                2644             2833            2488
+  NEWLEAF_2                4027             4221            4669
+  OLDLEAF_1                2363             2317            1288
+  OLDLEAF_2                6188             4647            3069
+
+#express in %
+
+tab <- table(epidermis_cells$Tissue_Rep, epidermis_cells$refined_cluster)
+
+percent_tab <- prop.table(tab, margin = 1) * 100
+
+round(percent_tab, 2)
+
+           Senescent_Epidermis Mature_Epidermis Young_Epidermis
+  NEWLEAF_1               33.20            35.57           31.24
+  NEWLEAF_2               31.18            32.68           36.15
+  OLDLEAF_1               39.59            38.82           21.58
+  OLDLEAF_2               44.51            33.42           22.07
+  
+  
+  
+a1 <- DimPlot(epidermis_cells, reduction = 'umap', group.by = 'refined_cluster', label = T)
+a2 <- DimPlot(epidermis_cells, reduction = 'umap', group.by = 'SCT_snn_res.0.6', label = T)
+
+  pdf("./plots_alevin/Pseudotime_epidermis_umap_clusters.pdf", width=7, height=5)
+a1|a2
+dev.off()
+# convert into cds object
+
+library(monocle3)
+
+# counts matrix (raw counts!)
+counts <- GetAssayData(epidermis_cells, slot = "counts")
+
+# cell metadata
+cell_metadata <- epidermis_cells@meta.data
+
+# gene metadata
+gene_metadata <- data.frame(
+  gene_short_name = rownames(counts),
+  row.names = rownames(counts)
+)
+
+cds <- new_cell_data_set(
+  counts,
+  cell_metadata = cell_metadata,
+  gene_metadata = gene_metadata
+)
+
+# assign paritions
+reacreate.partition <- c(rep(1,length(cds@colData@rownames)))
+names(reacreate.partition) <- cds@colData@rownames
+reacreate.partition <- as.factor(reacreate.partition)
+
+
+cds@clusters$UMAP$partitions <- reacreate.partition
+
+# Assign the cluster info 
+
+list_cluster <- epidermis_cells@active.ident
+cds@clusters$UMAP$clusters <- list_cluster
+
+
+# Assign UMAP coordinate - cell embeddings
+
+cds@int_colData@listData$reducedDims$UMAP <- epidermis_cells@reductions$umap@cell.embeddings
+
+cluster.before.trajectory <- plot_cells(cds,
+           color_cells_by = 'cluster',
+           label_groups_by_cluster = FALSE,
+           group_label_size = 5) +
+  theme(legend.position = "right")
+
+cluster.names <- plot_cells(cds,
+           color_cells_by = "refined_cluster",
+           label_groups_by_cluster = FALSE,
+           group_label_size = 5) +
+  scale_color_manual(values = c('red', 'blue','cyan')) +
+  theme(legend.position = "right")
+
+#cluster.before.trajectory | cluster.names
+
+tab <- table(cds$SCT_snn_res.0.6, cds$refined_cluster)
+#table(cds$SCT_snn_res.0.6, cds$Tissue_Rep)
+
+
+percent_tab <- prop.table(tab, margin = 1) * 100
+
+round(percent_tab, 2)
+    Senescent_Epidermis Mature_Epidermis Young_Epidermis
+  0               51.86            20.55           27.59
+  1               56.14            19.72           24.14
+  2               37.90            22.66           39.43
+  3               33.06            34.87           32.07
+  4               41.85            12.62           45.53
+  5                8.04            72.65           19.31
+  6               18.21            73.74            8.06
+  7               13.85            84.83            1.31
+  8               10.35             4.59           85.06
+  9               21.78            77.62            0.59
+
+# ...3. Learn trajectory graph ------------------------
+cds <- learn_graph(cds, use_partition = FALSE)
+
+plot_cells(cds,
+           color_cells_by = 'refined_cluster',
+           label_groups_by_cluster = FALSE,
+           label_branch_points = FALSE,
+           label_roots = FALSE,
+           label_leaves = FALSE,
+           group_label_size = 5)
+
+
+cds <- order_cells(cds, reduction_method = 'UMAP', root_cells = colnames(cds[,clusters(cds) == 8]))# change '0' withe the cluster wiht lowest pseudotime
+
+plot_cells(cds,
+           color_cells_by = 'pseudotime',
+           label_groups_by_cluster = FALSE,
+           label_branch_points = FALSE,
+           label_roots = FALSE,
+           label_leaves = FALSE)
+
+# cells ordered by monocle3 pseudotime
+
+pseudotime(cds)
+cds$monocle3_pseudotime <- pseudotime(cds)
+data.pseudo <- as.data.frame(colData(cds))
+
+  pdf("./plots_alevin/Pseudotime_epidermis_barplot.pdf", width=5, height=5)
+ggplot(data.pseudo, aes(monocle3_pseudotime, reorder(refined_cluster, monocle3_pseudotime, median), fill = refined_cluster)) +
+  geom_boxplot()
+
+dev.off()
+
+
+# ...5. Finding genes that change as a function of pseudotime --------------------
+deg_bcells <- graph_test(cds, neighbor_graph = 'principal_graph', cores = 4)
+
+write.csv(deg_bcells,"./ClusterAnnotation_alevin/pseudotime_epidermis_degs.csv")
+
+
+deg_bcells %>% 
+  arrange(q_value) %>% 
+  filter(status == 'OK') %>% 
+  head(20)
+
+FeaturePlot(epidermis_cells, features = c('VITVvi-vPixieFPS01-v1.0.Hap1.chr01.ver1.0.g004520', 'VITVvi-vPixieFPS01-v1.0.Hap1.chr02.ver1.0.g015000', 'VITVvi-vPixieFPS01-v1.0.Hap1.chr02.ver1.0.g017670','VITVvi-vPixieFPS01-v1.0.Hap1.chr02.ver1.0.g017680'))
+
+
+# visualizing pseudotime in seurat
+
+epidermis_cells$pseudotime <- pseudotime(cds)
+Idents(epidermis_cells) <- epidermis_cells$refined_cluster
+
+
+  pdf("./plots_alevin/Pseudotime_epidermis_umap_pseudot.pdf", width=5, height=5)
+FeaturePlot(epidermis_cells, features = "pseudotime", label = T)
+dev.off()
+
+
+saveRDS(epidermis_cells, "./alevin_seurat_clean/Pseudotime_Epidermis.rds")
+
+
+deg_sig <- deg_bcells %>%
+  dplyr::filter(q_value < 0.05, status == "OK") %>%
+  arrange(q_value)
+
+top_genes <- deg_sig$gene_short_name[1:50]
+
+  pdf("./plots_alevin/Pseudotime_epidermis_heatmap_pseudot.pdf", width=10, height=10)
+plot_genes_in_pseudotime(
+  cds[top_genes, ],
+  color_cells_by = "refined_cluster",
+  min_expr = 0.5
+)
+dev.off()
+
+
+
+
+library(monocle3)
+#library(SeuratWrappers)
+library(Seurat)
+library(ggplot2)
+library(tidyverse)
+library(plyr)
+
+
+seurat_obj<-readRDS("./alevin_seurat_clean/Leaves_SCT_Ann.rds")
+
+tab <- table(seurat_obj$Tissue_Rep, seurat_obj$SCT_snn_res.1)
+
+percent_tab <- prop.table(tab, margin = 1) * 100
+
+round(percent_tab, 2)
+
+
+new.cluster.ids <- c(
+  "0" = "Senescent_Mesophyll",#senescent
+  "1" = "Mature_Mesophyll",
+  "2" = "Young_Mesophyll",#young
+  "3" = "Young_Epidermis",
+  "4" = "Mature_Epidermis",
+  "5" = "Guard_Cells",    
+  "6" = "Senescent_Epidermis",
+  "7" = "Companion_Cell",
+  "8" = "Phloem_Parenchyma",
+   "9" = "Companion_Cell",
+  "10" = "Senescent_Epidermis",#senescent
+  "11" = "Senescent_Epidermis",
+  "12" = "Mature_Epidermis",
+  "13" = "Vascular_Parenchyma",
+  "14" = "Xylem_Parenchyma",    
+  "15" = "Senescent_Epidermis",#young
+  "16" = "Senescent_Epidermis",#senescent
+   "17" = "Mature_Mesophyll",#senescent
+  "18" = "Mature_Epidermis",
+  "19" = "Senescent_Mesophyll",
+  "20" = "Senescent_Mesophyll",
+  "21" = "Vascular_Parenchyma",
+  "22" = "Young_Epidermis",    #young
+  "23" = "Vascular_Parenchyma",
+  "24" = "Mature_Epidermis",    #young
+  "25" = "Companion_Cell",
+    "26" = "Vascular_Parenchyma",
+    "27" = "Vascular_Parenchyma"
+)
+
+
+seurat_obj$refined_cluster <- mapvalues(
+  seurat_obj$SCT_snn_res.1,
+  from = names(new.cluster.ids),
+  to = new.cluster.ids
+)
+
+Idents(seurat_obj) <- seurat_obj$refined_cluster
+
+
+#subset exocarp
+mesophyll_cells <- subset(
+  seurat_obj,
+  subset = grepl("Mesophyll", refined_cluster)
+)
+
+
+
+# pre-processing using seurat
+mesophyll_cells <- NormalizeData(mesophyll_cells)
+mesophyll_cells <- FindVariableFeatures(mesophyll_cells)
+mesophyll_cells <- ScaleData(mesophyll_cells)
+mesophyll_cells <- RunPCA(mesophyll_cells)
+mesophyll_cells <- FindNeighbors(mesophyll_cells, dims = 1:30)
+mesophyll_cells <- FindClusters(mesophyll_cells, resolution = 0.6)
+mesophyll_cells <- RunUMAP(mesophyll_cells, dims = 1:30, n.neighbors = 50)
+
+table(mesophyll_cells$Tissue_Rep, mesophyll_cells$refined_cluster)
+
+            Senescent_Mesophyll Mature_Mesophyll Young_Mesophyll
+  NEWLEAF_1                2220             3229            3695
+  NEWLEAF_2                5373             3840            2965
+  OLDLEAF_1                2646             2481            1903
+  OLDLEAF_2                6203             5412            3236
+#express in %
+
+tab <- table(mesophyll_cells$Tissue_Rep, mesophyll_cells$refined_cluster)
+
+percent_tab <- prop.table(tab, margin = 1) * 100
+
+round(percent_tab, 2)
+  
+            Senescent_Mesophyll Mature_Mesophyll Young_Mesophyll
+  NEWLEAF_1               24.28            35.31           40.41
+  NEWLEAF_2               44.12            31.53           24.35
+  OLDLEAF_1               37.64            35.29           27.07
+  OLDLEAF_2               41.77            36.44           21.79
+  
+a1 <- DimPlot(mesophyll_cells, reduction = 'umap', group.by = 'refined_cluster', label = T)
+a2 <- DimPlot(mesophyll_cells, reduction = 'umap', group.by = 'SCT_snn_res.0.6', label = T)
+
+  pdf("./plots_alevin/Pseudotime_mesophyll_umap_clusters.pdf", width=7, height=5)
+a1|a2
+dev.off()
+# convert into cds object
+
+library(monocle3)
+
+# counts matrix (raw counts!)
+counts <- GetAssayData(mesophyll_cells, slot = "counts")
+
+# cell metadata
+cell_metadata <- mesophyll_cells@meta.data
+
+# gene metadata
+gene_metadata <- data.frame(
+  gene_short_name = rownames(counts),
+  row.names = rownames(counts)
+)
+
+cds <- new_cell_data_set(
+  counts,
+  cell_metadata = cell_metadata,
+  gene_metadata = gene_metadata
+)
+
+# assign paritions
+reacreate.partition <- c(rep(1,length(cds@colData@rownames)))
+names(reacreate.partition) <- cds@colData@rownames
+reacreate.partition <- as.factor(reacreate.partition)
+
+
+cds@clusters$UMAP$partitions <- reacreate.partition
+
+# Assign the cluster info 
+
+list_cluster <- mesophyll_cells@active.ident
+cds@clusters$UMAP$clusters <- list_cluster
+
+
+# Assign UMAP coordinate - cell embeddings
+
+cds@int_colData@listData$reducedDims$UMAP <- mesophyll_cells@reductions$umap@cell.embeddings
+
+cluster.before.trajectory <- plot_cells(cds,
+           color_cells_by = 'cluster',
+           label_groups_by_cluster = FALSE,
+           group_label_size = 5) +
+  theme(legend.position = "right")
+
+cluster.names <- plot_cells(cds,
+           color_cells_by = "refined_cluster",
+           label_groups_by_cluster = FALSE,
+           group_label_size = 5) +
+  scale_color_manual(values = c('red', 'blue','cyan')) +
+  theme(legend.position = "right")
+
+#cluster.before.trajectory | cluster.names
+
+tab <- table(cds$SCT_snn_res.0.6, cds$refined_cluster)
+#table(cds$SCT_snn_res.0.6, cds$Tissue_Rep)
+
+
+percent_tab <- prop.table(tab, margin = 1) * 100
+
+round(percent_tab, 2)
+    Senescent_Mesophyll Mature_Mesophyll Young_Mesophyll
+  0               44.14            41.60           14.26
+  1               34.55            24.99           40.46
+  2               27.69            42.36           29.95
+  3               45.30            41.10           13.60
+  4               43.57            19.80           36.63
+  5                3.66             5.43           90.91
+  6               44.20            55.80            0.00
+
+# ...3. Learn trajectory graph ------------------------
+cds <- learn_graph(cds, use_partition = FALSE)
+
+plot_cells(cds,
+           color_cells_by = 'refined_cluster',
+           label_groups_by_cluster = FALSE,
+           label_branch_points = FALSE,
+           label_roots = FALSE,
+           label_leaves = FALSE,
+           group_label_size = 5)
+
+
+cds <- order_cells(cds, reduction_method = 'UMAP', root_cells = colnames(cds[,clusters(cds) == 5]))# change '0' withe the cluster wiht lowest pseudotime
+
+plot_cells(cds,
+           color_cells_by = 'pseudotime',
+           label_groups_by_cluster = FALSE,
+           label_branch_points = FALSE,
+           label_roots = FALSE,
+           label_leaves = FALSE)
+
+# cells ordered by monocle3 pseudotime
+
+pseudotime(cds)
+cds$monocle3_pseudotime <- pseudotime(cds)
+data.pseudo <- as.data.frame(colData(cds))
+
+  pdf("./plots_alevin/Pseudotime_mesophyll_barplot.pdf", width=5, height=5)
+ggplot(data.pseudo, aes(monocle3_pseudotime, reorder(refined_cluster, monocle3_pseudotime, median), fill = refined_cluster)) +
+  geom_boxplot()
+
+dev.off()
+
+
+# ...5. Finding genes that change as a function of pseudotime --------------------
+deg_bcells <- graph_test(cds, neighbor_graph = 'principal_graph', cores = 4)
+
+write.csv(deg_bcells,"./ClusterAnnotation_alevin/pseudotime_mesophyll_degs.csv")
+
+
+deg_bcells %>% 
+  arrange(q_value) %>% 
+  filter(status == 'OK') %>% 
+  head(20)
+
+FeaturePlot(mesophyll_cells, features = c('VITVvi-vPixieFPS01-v1.0.Hap1.chr01.ver1.0.g004520', 'VITVvi-vPixieFPS01-v1.0.Hap1.chr02.ver1.0.g015000', 'VITVvi-vPixieFPS01-v1.0.Hap1.chr02.ver1.0.g017670','VITVvi-vPixieFPS01-v1.0.Hap1.chr02.ver1.0.g017680'))
+
+
+# visualizing pseudotime in seurat
+
+mesophyll_cells$pseudotime <- pseudotime(cds)
+Idents(mesophyll_cells) <- mesophyll_cells$refined_cluster
+
+
+  pdf("./plots_alevin/Pseudotime_mesophyll_umap_pseudot.pdf", width=5, height=5)
+FeaturePlot(mesophyll_cells, features = "pseudotime", label = T)
+dev.off()
+
+
+saveRDS(mesophyll_cells, "./alevin_seurat_clean/Pseudotime_Mesophyll.rds")
+
+
+deg_sig <- deg_bcells %>%
+  dplyr::filter(q_value < 0.05, status == "OK") %>%
+  arrange(q_value)
+
+top_genes <- deg_sig$gene_short_name[1:50]
+
+  pdf("./plots_alevin/Pseudotime_mesophyll_heatmap_pseudot.pdf", width=10, height=10)
+plot_genes_in_pseudotime(
+  cds[top_genes, ],
+  color_cells_by = "refined_cluster",
+  min_expr = 0.5
+)
+dev.off()
+
+
+
+
+library(monocle3)
+#library(SeuratWrappers)
+library(Seurat)
+library(ggplot2)
+library(tidyverse)
+library(plyr)
+
+
+seurat_obj <- readRDS("./alevin_seurat_clean/Flower_SCT_Ann.rds")
+
+
+new.cluster.ids <- c(
+  "0" = "Vascular_Parenchyma",
+  "1" = "Maturing_Pollen",
+  "2" = "Calyx",
+  "3" = "Calyptra",
+  "4" = "Calyx",
+  "5" = "Ovary",    
+  "6" = "Ovary",
+  "7" = "Xylem_Parenchyma",
+  "8" = "Ovary",
+  "9" = "Vascular_Parenchyma",
+    "10" = "Mature_Pollen",
+  "11" = "Mature_Pollen",
+  "12" = "Epidermis",
+  "13" = "Calyptra",
+  "14" = "Vascular_Parenchyma",
+  "15" = "Calyptra",    
+  "16" = "Calyptra",
+  "17" = "Calyptra",
+  "18" = "Calyx",
+  "19" = "Vascular_Parenchyma",
+    "20" = "Style",
+  "21" = "Vascular_Parenchyma",
+  "22" = "Anther",
+  "23" = "Germinating_Pollen",
+  "24" = "Stigmatic_Papilla",
+  "25" = "Receptacle",    
+  "26" = "Filament",
+  "27" = "Ovary",
+  "28" = "Calyptra",
+  "29" = "Anther",
+    "30" = "Calyx",
+  "31" = "Phloem_Parenchyma",
+  "32" = "Anther",
+  "33" = "Immature_Pollen",
+  "34" = "Phloem_Parenchyma",
+  "35" = "Companion_Cell",    
+  "36" = "Ovary",
+  "37" = "Mature_Pollen",
+  "38" = "Calyptra",
+  "39" = "Stigma",
+    "40" = "Mature_Pollen"
+)
+
+library(Seurat)
+library(plyr)
+
+seurat_obj$refined_cluster <- mapvalues(
+  seurat_obj$SCT_snn_res.2,
+  from = names(new.cluster.ids),
+  to = new.cluster.ids
+)
+
+Idents(seurat_obj) <- seurat_obj$refined_cluster
+
+
+p1<- DimPlot(seurat_obj, reduction = 'umap', group.by = 'refined_cluster', label=T)
+
+p2<- DimPlot(seurat_obj, reduction = 'umap', group.by = 'cluster_annotation', label=T)
+
+p3<- DimPlot(seurat_obj, reduction = 'umap', group.by = 'Tissue_Rep', label=T)
+
+pdf("./plots_alevin/flower_UMAP_refinedClusters.pdf", width=10, height=5)
+p1|p2
+dev.off()
+
+#subset exocarp
+pollen_cells <- subset(
+  seurat_obj,
+  subset = grepl("Pollen", refined_cluster)
+)
+
+#[1] 29024  8778
+
+# pre-processing using seurat
+pollen_cells <- NormalizeData(pollen_cells)
+pollen_cells <- FindVariableFeatures(pollen_cells)
+pollen_cells <- ScaleData(pollen_cells)
+pollen_cells <- RunPCA(pollen_cells)
+pollen_cells <- FindNeighbors(pollen_cells, dims = 1:30)
+pollen_cells <- FindClusters(pollen_cells, resolution = 0.6)
+pollen_cells <- RunUMAP(pollen_cells, dims = 1:30, n.neighbors = 50)
+
+
+pollen_cells <- FindNeighbors(pollen_cells, dims = 1:30, k.param = 30) 
+# increase k.param for smoother connections
+pollen_cells <- RunUMAP(pollen_cells, dims = 1:30, n.neighbors = 40, min.dist = 0.4)
+
+
+table(pollen_cells$Tissue_Rep, pollen_cells$refined_cluster)
+
+           Maturing_Pollen Mature_Pollen Germinating_Pollen Immature_Pollen
+  FLOWER_1            1918          2433                495             192
+  FLOWER_2            1267          1626                641             206
+
+#express in %
+
+tab <- table(pollen_cells$Tissue_Rep, pollen_cells$refined_cluster)
+
+percent_tab <- prop.table(tab, margin = 1) * 100
+
+round(percent_tab, 2)
+          Maturing_Pollen Mature_Pollen Germinating_Pollen Immature_Pollen
+  FLOWER_1           38.07         48.29               9.83            3.81
+  FLOWER_2           33.88         43.48              17.14            5.51
+
+  
+a1 <- DimPlot(pollen_cells, reduction = 'umap', group.by = 'refined_cluster', label = T)
+a2 <- DimPlot(pollen_cells, reduction = 'umap', group.by = 'SCT_snn_res.0.6', label = T)
+
+  pdf("./plots_alevin/Pseudotime_pollen_umap_clusters.pdf", width=7, height=5)
+a1|a2
+dev.off()
+# convert into cds object
+
+library(monocle3)
+
+# counts matrix (raw counts!)
+counts <- GetAssayData(pollen_cells, slot = "counts")
+
+# cell metadata
+cell_metadata <- pollen_cells@meta.data
+
+# gene metadata
+gene_metadata <- data.frame(
+  gene_short_name = rownames(counts),
+  row.names = rownames(counts)
+)
+
+cds <- new_cell_data_set(
+  counts,
+  cell_metadata = cell_metadata,
+  gene_metadata = gene_metadata
+)
+
+# assign paritions
+reacreate.partition <- c(rep(1,length(cds@colData@rownames)))
+names(reacreate.partition) <- cds@colData@rownames
+reacreate.partition <- as.factor(reacreate.partition)
+
+
+cds@clusters$UMAP$partitions <- reacreate.partition
+
+# Assign the cluster info 
+
+list_cluster <- pollen_cells@active.ident
+cds@clusters$UMAP$clusters <- list_cluster
+
+
+# Assign UMAP coordinate - cell embeddings
+
+cds@int_colData@listData$reducedDims$UMAP <- pollen_cells@reductions$umap@cell.embeddings
+
+cluster.before.trajectory <- plot_cells(cds,
+           color_cells_by = 'cluster',
+           label_groups_by_cluster = FALSE,
+           group_label_size = 5) +
+  theme(legend.position = "right")
+
+cluster.names <- plot_cells(cds,
+           color_cells_by = "refined_cluster",
+           label_groups_by_cluster = FALSE,
+           group_label_size = 5) +
+  scale_color_manual(values = c('red', 'blue','cyan')) +
+  theme(legend.position = "right")
+
+#cluster.before.trajectory | cluster.names
+
+tab <- table(cds$SCT_snn_res.0.6, cds$refined_cluster)
+#table(cds$SCT_snn_res.0.6, cds$Tissue_Rep)
+
+
+percent_tab <- prop.table(tab, margin = 1) * 100
+
+round(percent_tab, 2)
+
+
+    Maturing_Pollen Mature_Pollen Germinating_Pollen Immature_Pollen
+  0           76.04         23.30               0.37            0.29
+  1           12.70         83.12               4.19            0.00
+  2            0.50         99.43               0.07            0.00
+  3           20.49          4.56              74.94            0.00
+  4           44.36         50.95               4.69            0.00
+  5           59.46         33.00               6.87            0.67
+  6            2.97          1.24               0.00           95.79
+# ...3. Learn trajectory graph ------------------------
+cds <- learn_graph(cds, use_partition = FALSE)
+
+plot_cells(cds,
+           color_cells_by = 'refined_cluster',
+           label_groups_by_cluster = FALSE,
+           label_branch_points = FALSE,
+           label_roots = FALSE,
+           label_leaves = FALSE,
+           group_label_size = 5)
+
+
+cds <- order_cells(cds, reduction_method = 'UMAP', root_cells = colnames(cds[,clusters(cds) == 6]))# change '0' withe the cluster wiht lowest pseudotime
+
+plot_cells(cds,
+           color_cells_by = 'pseudotime',
+           label_groups_by_cluster = FALSE,
+           label_branch_points = FALSE,
+           label_roots = FALSE,
+           label_leaves = FALSE)
+
+# cells ordered by monocle3 pseudotime
+
+pseudotime(cds)
+cds$monocle3_pseudotime <- pseudotime(cds)
+data.pseudo <- as.data.frame(colData(cds))
+
+  pdf("./plots_alevin/Pseudotime_pollen_barplot.pdf", width=5, height=5)
+ggplot(data.pseudo, aes(monocle3_pseudotime, reorder(refined_cluster, monocle3_pseudotime, median), fill = refined_cluster)) +
+  geom_boxplot()
+
+dev.off()
+
+
+# ...5. Finding genes that change as a function of pseudotime --------------------
+deg_bcells <- graph_test(cds, neighbor_graph = 'principal_graph', cores = 4)
+
+write.csv(deg_bcells,"./ClusterAnnotation_alevin/pseudotime_pollen_degs.csv")
+
+
+deg_bcells %>% 
+  arrange(q_value) %>% 
+  filter(status == 'OK') %>% 
+  head(20)
+ 
+ pdf("./plots_alevin/Pseudotime_pollen_umap_degs.pdf", width=5, height=5)
+FeaturePlot(pollen_cells, features = c('VITVvi-vPixieFPS01-v1.0.Hap1.chr01.ver1.0.g008730', 'VITVvi-vPixieFPS01-v1.0.Hap1.chr01.ver1.0.g000610', 'VITVvi-vPixieFPS01-v1.0.Hap1.chr01.ver1.0.g006790','VITVvi-vPixieFPS01-v1.0.Hap1.chr01.ver1.0.g009340'))
+dev.off()
+
+# visualizing pseudotime in seurat
+
+pollen_cells$pseudotime <- pseudotime(cds)
+Idents(pollen_cells) <- pollen_cells$refined_cluster
+
+
+  pdf("./plots_alevin/Pseudotime_pollen_umap_pseudot.pdf", width=5, height=5)
+FeaturePlot(pollen_cells, features = "pseudotime", label = T)
+dev.off()
+
+
+saveRDS(pollen_cells, "./alevin_seurat_clean/Pseudotime_Pollen.rds")
+
+
+
+
+#############
+#get genes associated with developmental stage along the pseudotime 
+
+seu_obj<-readRDS("./alevin_seurat_clean/Pseudotime_Pollen.rds")
+
+deg_bcells<-read.csv("./ClusterAnnotation_alevin/pseudotime_pollen_degs.csv")
+
+  seu_obj <- PrepSCTFindMarkers(seu_obj)
+  
+  Idents(seu_obj) <- "refined_cluster"
+
+markers_stage <- FindAllMarkers(
+  seu_obj,
+  only.pos = TRUE,
+  min.pct = 0.1,
+  logfc.threshold = 0.25
+)
+
+
+library(dplyr)
+
+final_markers <- markers_stage %>%
+  filter(p_val_adj < 0.05) %>%
+  inner_join(deg_bcells, by = c("gene" = "gene_short_name"))
+
+
+write.csv(final_markers,"./ClusterAnnotation_alevin/pseudotime_pollen_stagesDEGs.csv")
+
+
+
+
+seu_obj<-readRDS("./alevin_seurat_clean/Pseudotime_Exocarp.rds")
+
+deg_bcells<-read.csv("./ClusterAnnotation_alevin/pseudotime_exocarp_degs.csv")
+  
+  
+  DefaultAssay(seu_obj) <- "RNA"
+
+seu_obj <- NormalizeData(seu_obj)
+seu_obj <- FindVariableFeatures(seu_obj)
+seu_obj <- ScaleData(seu_obj)
+
+seu_joined<-JoinLayers(seu_obj)
+
+DefaultAssay(seu_joined)<-"RNA"
+  #seu_obj <- PrepSCTFindMarkers(seu_joined)
+  Idents(seu_joined) <- "refined_cluster"
+
+markers_stage <- FindAllMarkers(
+  seu_joined,
+  only.pos = TRUE,
+  min.pct = 0.1,
+  logfc.threshold = 0.25
+)
+
+
+library(dplyr)
+
+final_markers <- markers_stage %>%
+  filter(p_val_adj < 0.05) %>%
+  inner_join(deg_bcells, by = c("gene" = "gene_short_name"))
+
+
+write.csv(final_markers,"./ClusterAnnotation_alevin/pseudotime_exocarp_stagesDEGs.csv")
