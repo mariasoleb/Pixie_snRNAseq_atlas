@@ -247,4 +247,31 @@ ggplot(vp_df, aes(x = CellType, y = Organ)) +
     y = "Variance explained by Organ",
     title = "Regulon specificity landscape"
   )
-  
+
+
+enriched_organ <- organ_results %>%
+  filter(padj < 1e-8) %>%
+  group_by(target_organ) %>%
+  summarise(
+    n_regulons = n_distinct(regulon),
+    .groups = "drop"
+  ) %>%
+  arrange(desc(n_regulons))
+
+enriched_organ
+
+
+
+
+enriched_celltype <- lm_results %>%
+  filter(padj < 1e-8) %>%
+  group_by(target_cell) %>%
+  summarise(
+    n_regulons = n_distinct(regulon),
+    .groups = "drop"
+  ) %>%
+  arrange(desc(n_regulons))
+
+enriched_celltype
+
+
