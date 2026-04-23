@@ -1,0 +1,340 @@
+library(Seurat)
+
+###use RNA assay for FindAllClusters
+seurat_bud<-readRDS("./alevin_seurat_clean/Bud_SCT.rds")
+seurat_obj<-seurat_bud
+DefaultAssay(seurat_obj)<-"RNA"
+seurat_obj <- NormalizeData(seurat_obj)
+Layers(seurat_obj)
+#[1] "counts" "data"
+
+seurat_joined <- JoinLayers(seurat_obj)
+
+#try using wilcoxon test which is more robust to zeros
+all_markers<-FindAllMarkers(seurat_joined,
+                            logfc.threshold = 0.1,
+                            min.pct = 0.05,
+                            only.pos = TRUE,
+                            test.use = 'wilcox')
+
+
+Pixie_ann<-read.delim("VITVvi_vPixieFPS01_v1.0.pseudomolecules.all.functional.txt", header=TRUE)
+# Remove the ".pXX" at the end of each SeqName string
+Pixie_ann$SeqName <- sub("\\.p\\d+$", "", Pixie_ann$SeqName)
+# Replace all hyphens with underscores
+Pixie_ann$SeqName <- gsub("_", "-", Pixie_ann$SeqName)  
+# Step 2: Remove duplicate SeqName entries
+Pixie_ann <- Pixie_ann[!duplicated(Pixie_ann$SeqName), ]
+
+
+colnames(all_markers)[7]<-"SeqName"
+
+all_markers_ann<-merge(all_markers, Pixie_ann, by="SeqName")
+write.csv
+
+
+write.csv(all_markers_ann, "./ClusterAnnotation_alevin/Bud_AllMarkers.csv")
+
+
+
+
+#leaf
+
+
+# First, define your marker list in a named list
+leaf_marker_list <- list(
+
+    Mesophyll = c("VITVvi-vPixieFPS01-v1.0.Hap1.chr03.ver1.0.g024470","VITVvi-vPixieFPS01-v1.0.Hap1.chr19.ver1.0.g241500","VITVvi-vPixieFPS01-v1.0.Hap2.chr05.ver1.0.g300170"),
+    Epidermis = c("VITVvi-vPixieFPS01-v1.0.Hap2.chr02.ver1.0.g260600", "VITVvi-vPixieFPS01-v1.0.Hap1.chr02.ver1.0.g014800","VITVvi-vPixieFPS01-v1.0.Hap2.chr10.ver1.0.g367040"),
+    Vascular_Parenchyma = c("VITVvi-vPixieFPS01-v1.0.Hap1.chr10.ver1.0.g120750","VITVvi-vPixieFPS01-v1.0.Hap1.chr11.ver1.0.g138690","VITVvi-vPixieFPS01-v1.0.Hap1.chr18.ver1.0.g225260"),
+    Xylem_Parenchyma = c("VITVvi-vPixieFPS01-v1.0.Hap1.chr08.ver1.0.g094990", "VITVvi-vPixieFPS01-v1.0.Hap1.chr12.ver1.0.g154280","VITVvi-vPixieFPS01-v1.0.Hap2.chr12.ver1.0.g399380"),
+
+   Phloem_Parenchyma = c("VITVvi-vPixieFPS01-v1.0.Hap1.chr18.ver1.0.g224520", "VITVvi-vPixieFPS01-v1.0.Hap2.chr18.ver1.0.g470550"),
+
+    Guard_Cells = c("VITVvi-vPixieFPS01-v1.0.Hap2.chr07.ver1.0.g324600","VITVvi-vPixieFPS01-v1.0.Hap1.chr07.ver1.0.g079310","VITVvi-vPixieFPS01-v1.0.Hap2.chr12.ver1.0.g388300", "VITVvi-vPixieFPS01-v1.0.Hap1.chr18.ver1.0.g219670","VITVvi-vPixieFPS01-v1.0.Hap2.chr07.ver1.0.g324060"),
+      Companion_Cell = c("VITVvi-vPixieFPS01-v1.0.Hap2.chr18.ver1.0.g463640", "VITVvi-vPixieFPS01-v1.0.Hap1.chr01.ver1.0.g001590","VITVvi-vPixieFPS01-v1.0.Hap1.chr18.ver1.0.g217640")
+)
+
+#flower 
+flower_marker_list <- list(
+
+Vascular_Parenchyma = c("VITVvi-vPixieFPS01-v1.0.Hap1.chr04.ver1.0.g044260","VITVvi-vPixieFPS01-v1.0.Hap2.chr04.ver1.0.g293190"),
+
+ Pollen = c("VITVvi-vPixieFPS01-v1.0.Hap1.chr10.ver1.0.g125360", "VITVvi-vPixieFPS01-v1.0.Hap2.chr11.ver1.0.g379950", "VITVvi-vPixieFPS01-v1.0.Hap2.chr10.ver1.0.g371460"),
+ Epidermis = c("VITVvi-vPixieFPS01-v1.0.Hap2.chr09.ver1.0.g364370","VITVvi-vPixieFPS01-v1.0.Hap1.chr09.ver1.0.g118560"),
+Calyptra = c("VITVvi-vPixieFPS01-v1.0.Hap2.chr14.ver1.0.g422590", "VITVvi-vPixieFPS01-v1.0.Hap2.chr16.ver1.0.g443790"),
+ Calyx = c("VITVvi-vPixieFPS01-v1.0.Hap1.chr04.ver1.0.g038490","VITVvi-vPixieFPS01-v1.0.Hap2.chr17.ver1.0.g456340","VITVvi-vPixieFPS01-v1.0.Hap1.chr17.ver1.0.g210100"),
+  Style = c("VITVvi-vPixieFPS01-v1.0.Hap1.chr07.ver1.0.g086970", "VITVvi-vPixieFPS01-v1.0.Hap2.chr17.ver1.0.g453400"),
+  Anthers = c("VITVvi-vPixieFPS01-v1.0.Hap2.chr18.ver1.0.g478880", "VITVvi-vPixieFPS01-v1.0.Hap2.chr07.ver1.0.g328180", "VITVvi-vPixieFPS01-v1.0.Hap1.chr07.ver1.0.g082920"),
+  Stigmatic_Papilla = c("VITVvi-vPixieFPS01-v1.0.Hap1.chr06.ver1.0.g075590","VITVvi-vPixieFPS01-v1.0.Hap2.chr03.ver1.0.g270600","VITVvi-vPixieFPS01-v1.0.Hap1.chr04.ver1.0.g042600"),
+  Receptacle = c("VITVvi-vPixieFPS01-v1.0.Hap1.chr07.ver1.0.g079700","VITVvi-vPixieFPS01-v1.0.Hap1.chr14.ver1.0.g182600","VITVvi-vPixieFPS01-v1.0.Hap2.chr14.ver1.0.g428030"),
+  Filament = c("VITVvi-vPixieFPS01-v1.0.Hap1.chr19.ver1.0.g239620", "VITVvi-vPixieFPS01-v1.0.Hap2.chr19.ver1.0.g485780","VITVvi-vPixieFPS01-v1.0.Hap1.chr05.ver1.0.g055910"),
+   Ovary = c("VITVvi-vPixieFPS01-v1.0.Hap2.chr18.ver1.0.g477690", "VITVvi-vPixieFPS01-v1.0.Hap1.chr10.ver1.0.g130800", "VITVvi-vPixieFPS01-v1.0.Hap1.chr18.ver1.0.g231560"),
+   Phloem_Parenchyma = c("VITVvi-vPixieFPS01-v1.0.Hap1.chr17.ver1.0.g204720","VITVvi-vPixieFPS01-v1.0.Hap2.chr17.ver1.0.g451000"),
+   Microsporangia = c("VITVvi-vPixieFPS01-v1.0.Hap1.chr04.ver1.0.g046340", "VITVvi-vPixieFPS01-v1.0.Hap1.chr18.ver1.0.g231560"),
+  Companion_Cell = c("VITVvi-vPixieFPS01-v1.0.Hap1.chr01.ver1.0.g001560","VITVvi-vPixieFPS01-v1.0.Hap1.chr01.ver1.0.g001570"),
+ Stigma = c("VITVvi-vPixieFPS01-v1.0.Hap1.chr10.ver1.0.g119540", "VITVvi-vPixieFPS01-v1.0.Hap2.chr19.ver1.0.g485400"),
+ Xylem_Parenchyma = c("VITVvi-vPixieFPS01-v1.0.Hap1.chr04.ver1.0.g047860","VITVvi-vPixieFPS01-v1.0.Hap1.chr12.ver1.0.g144670")
+)
+
+
+
+#berry
+
+
+
+# First, define your marker list in a named list
+berry_marker_list <- list(
+    Vascular_Parenchyma = c("VITVvi-vPixieFPS01-v1.0.Hap1.chr11.ver1.0.g138330","VITVvi-vPixieFPS01-v1.0.Hap1.chr19.ver1.0.g243890","VITVvi-vPixieFPS01-v1.0.Hap2.chr02.ver1.0.g267590", "VITVvi-vPixieFPS01-v1.0.Hap1.chr13.ver1.0.g163150"),
+  Green_Exocarp = c("VITVvi−vPixieFPS01−v1.0.Hap2.chr18.ver1.0.g471290", "VITVvi-vPixieFPS01-v1.0.Hap1.chr18.ver1.0.g225260"),
+   Mesocarp = c("VITVvi-vPixieFPS01-v1.0.Hap1.chr04.ver1.0.g041720", "VITVvi-vPixieFPS01-v1.0.Hap2.chr08.ver1.0.g343510","VITVvi-vPixieFPS01-v1.0.Hap1.chr02.ver1.0.g023900"),
+
+    Chlorenchyma = c("VITVvi-vPixieFPS01-v1.0.Hap2.chr08.ver1.0.g353870","VITVvi-vPixieFPS01-v1.0.Hap1.chr12.ver1.0.g150440","VITVvi-vPixieFPS01-v1.0.Hap1.chr12.ver1.0.g143830"),
+    Ripening_Exocarp = c("VITVvi-vPixieFPS01-v1.0.Hap1.chr11.ver1.0.g136340", "VITVvi-vPixieFPS01-v1.0.Hap2.chr11.ver1.0.g382170","VITVvi-vPixieFPS01-v1.0.Hap2.chr05.ver1.0.g300520"),
+    Ripening_Mesocarp = c("VITVvi-vPixieFPS01-v1.0.Hap1.chr05.ver1.0.g055960"),
+  Epidermis = c("VITVvi-vPixieFPS01-v1.0.Hap1.chr10.ver1.0.g123430", "VITVvi-vPixieFPS01-v1.0.Hap2.chr08.ver1.0.g343290","VITVvi-vPixieFPS01-v1.0.Hap2.chr04.ver1.0.g283920","VITVvi-vPixieFPS01-v1.0.Hap1.chr04.ver1.0.g038330"),
+    Exocarp = c("VITVvi-vPixieFPS01-v1.0.Hap1.chr05.ver1.0.g049890", "VITVvi-vPixieFPS01-v1.0.Hap1.chr05.ver1.0.g049900","VITVvi-vPixieFPS01-v1.0.Hap1.chr16.ver1.0.g199650"),
+    Xylem_Parenchyma = c("VITVvi-vPixieFPS01-v1.0.Hap1.chr08.ver1.0.g099350", "VITVvi-vPixieFPS01-v1.0.Hap1.chr08.ver1.0.g102940","VITVvi-vPixieFPS01-v1.0.Hap1.chr10.ver1.0.g119460"),
+    Phloem_Parenchyma = c("VITVvi-vPixieFPS01-v1.0.Hap1.chr17.ver1.0.g204720", "VITVvi-vPixieFPS01-v1.0.Hap2.chr17.ver1.0.g451000"),
+  Companion_Cell = c("VITVvi-vPixieFPS01-v1.0.Hap2.chr01.ver1.0.g246840", "VITVvi-vPixieFPS01-v1.0.Hap1.chr01.ver1.0.g001560")
+)
+
+
+
+
+
+#stem 
+
+
+# First, define your marker list in a named list
+stem_marker_list <- list(
+  Pith = c("VITVvi-vPixieFPS01-v1.0.Hap2.chr10.ver1.0.g366780", "VITVvi-vPixieFPS01-v1.0.Hap1.chr10.ver1.0.g120900","VITVvi-vPixieFPS01-v1.0.Hap1.chr12.ver1.0.g145770"),
+  Chlorenchyma = c("VITVvi-vPixieFPS01-v1.0.Hap1.chr02.ver1.0.g023890","VITVvi-vPixieFPS01-v1.0.Hap1.chr13.ver1.0.g163010"),
+  Cambium = c("VITVvi-vPixieFPS01-v1.0.Hap1.chr04.ver1.0.g038930", "VITVvi-vPixieFPS01-v1.0.Hap2.chr04.ver1.0.g284380"),
+      Companion_Cell = c("VITVvi-vPixieFPS01-v1.0.Hap1.chr01.ver1.0.g001560", "VITVvi-vPixieFPS01-v1.0.Hap1.chr01.ver1.0.g001570","VITVvi-vPixieFPS01-v1.0.Hap2.chr01.ver1.0.g246890"),
+
+      Epidermis = c("VITVvi-vPixieFPS01-v1.0.Hap2.chr07.ver1.0.g323780","VITVvi-vPixieFPS01-v1.0.Hap1.chr18.ver1.0.g231780","VITVvi-vPixieFPS01-v1.0.Hap2.chr04.ver1.0.g288080"),
+
+    Cortex = c("VITVvi-vPixieFPS01-v1.0.Hap1.chr08.ver1.0.g107810","VITVvi-vPixieFPS01-v1.0.Hap2.chr08.ver1.0.g353180","VITVvi-vPixieFPS01-v1.0.Hap1.chr08.ver1.0.g107790"),
+
+      Vascular_Parenchyma = c("VITVvi-vPixieFPS01-v1.0.Hap1.chr13.ver1.0.g167410", "VITVvi-vPixieFPS01-v1.0.Hap2.chr13.ver1.0.g412460"),
+  Xylem_Parenchyma = c("VITVvi-vPixieFPS01-v1.0.Hap1.chr06.ver1.0.g070230", "VITVvi-vPixieFPS01-v1.0.Hap2.chr06.ver1.0.g315940"),
+  Phloem_Parenchyma = c("VITVvi-vPixieFPS01-v1.0.Hap2.chr18.ver1.0.g470550", "VITVvi-vPixieFPS01-v1.0.Hap1.chr18.ver1.0.g224520"),
+  Protoxylem = c("VITVvi-vPixieFPS01-v1.0.Hap1.chr04.ver1.0.g042410", "VITVvi-vPixieFPS01-v1.0.Hap2.chr04.ver1.0.g287880"),
+
+      Protophloem = c("VITVvi-vPixieFPS01-v1.0.Hap1.chr14.ver1.0.g180360","VITVvi-vPixieFPS01-v1.0.Hap2.chr14.ver1.0.g425770","VITVvi-vPixieFPS01-v1.0.Hap2.chr01.ver1.0.g251400"),
+            Trichomes = c("VITVvi-vPixieFPS01-v1.0.Hap2.chr13.ver1.0.g412310","VITVvi-vPixieFPS01-v1.0.Hap1.chr19.ver1.0.g239610","VITVvi-vPixieFPS01-v1.0.Hap2.chr14.ver1.0.g427440")
+)
+
+
+#bud 
+
+
+# First, define your marker list in a named list
+bud_marker_list <- list(
+  Lignified_Epidermis = c("VITVvi-vPixieFPS01-v1.0.Hap1.chr18.ver1.0.g225260", "VITVvi-vPixieFPS01-v1.0.Hap2.chr18.ver1.0.g467060","VITVvi-vPixieFPS01-v1.0.Hap1.chr01.ver1.0.g004710"),
+  Cortex = c("VITVvi-vPixieFPS01-v1.0.Hap1.chr02.ver1.0.g018820", "VITVvi-vPixieFPS01-v1.0.Hap1.chr10.ver1.0.g127630","VITVvi-vPixieFPS01-v1.0.Hap2.chr10.ver1.0.g373620"),
+  Dormant_Meristem = c("VITVvi-vPixieFPS01-v1.0.Hap2.chr11.ver1.0.g381370", "VITVvi-vPixieFPS01-v1.0.Hap1.chr06.ver1.0.g074540"),
+    Suberized_Epidermis = c("VITVvi-vPixieFPS01-v1.0.Hap1.chr14.ver1.0.g175890","VITVvi-vPixieFPS01-v1.0.Hap2.chr07.ver1.0.g323780","VITVvi-vPixieFPS01-v1.0.Hap1.chr10.ver1.0.g120590"),
+    Proliferating_Meristem = c("VITVvi-vPixieFPS01-v1.0.Hap2.chr06.ver1.0.g310150","VITVvi-vPixieFPS01-v1.0.Hap1.chr06.ver1.0.g066990","VITVvi-vPixieFPS01-v1.0.Hap1.chr14.ver1.0.g183090"),
+  Epidermis = c("VITVvi-vPixieFPS01-v1.0.Hap1.chr01.ver1.0.g005900", "VITVvi-vPixieFPS01-v1.0.Hap1.chr19.ver1.0.g239450","VITVvi-vPixieFPS01-v1.0.Hap1.chr02.ver1.0.g017210"),
+    Hypodermis = c("VITVvi-vPixieFPS01-v1.0.Hap1.chr05.ver1.0.g055960","VITVvi-vPixieFPS01-v1.0.Hap1.chr16.ver1.0.g203450"),
+  Xylem_Parenchyma = c("VITVvi-vPixieFPS01-v1.0.Hap2.chr14.ver1.0.g428990", "VITVvi-vPixieFPS01-v1.0.Hap2.chr18.ver1.0.g472180", "VITVvi-vPixieFPS01-v1.0.Hap2.chr04.ver1.0.g291530"),
+  Defense_Epidermis = c("VITVvi-vPixieFPS01-v1.0.Hap2.chr11.ver1.0.g382260", "VITVvi-vPixieFPS01-v1.0.Hap2.chr04.ver1.0.g287360","VITVvi-vPixieFPS01-v1.0.Hap1.chr17.ver1.0.g213900"),
+  Companion_Cell = c("VITVvi-vPixieFPS01-v1.0.Hap2.chr01.ver1.0.g246840", "VITVvi-vPixieFPS01-v1.0.Hap1.chr01.ver1.0.g001600","VITVvi-vPixieFPS01-v1.0.Hap2.chr18.ver1.0.g463260"),
+  Phloem_Parenchyma = c("VITVvi-vPixieFPS01-v1.0.Hap1.chr10.ver1.0.g120520", "VITVvi-vPixieFPS01-v1.0.Hap2.chr10.ver1.0.g366390","VITVvi-vPixieFPS01-v1.0.Hap1.chr08.ver1.0.g098850","VITVvi-vPixieFPS01-v1.0.Hap2.chr17.ver1.0.g451000")
+)
+
+
+
+
+#root
+
+
+# First, define your marker list in a named list
+root_marker_list <- list(
+ 
+  Endodermis = c("VITVvi-vPixieFPS01-v1.0.Hap2.chr05.ver1.0.g298210", "VITVvi-vPixieFPS01-v1.0.Hap1.chr15.ver1.0.g184690", "VITVvi-vPixieFPS01-v1.0.Hap1.chr17.ver1.0.g206500"),
+  Cortex = c("VITVvi-vPixieFPS01-v1.0.Hap1.chr09.ver1.0.g115540","VITVvi-vPixieFPS01-v1.0.Hap2.chr09.ver1.0.g360900"),
+    Xylem_Parenchyma = c("VITVvi-vPixieFPS01-v1.0.Hap1.chr03.ver1.0.g034960", "VITVvi-vPixieFPS01-v1.0.Hap2.chr07.ver1.0.g332760", "VITVvi-vPixieFPS01-v1.0.Hap2.chr03.ver1.0.g280490"),
+  Epidermis = c("VITVvi-vPixieFPS01-v1.0.Hap1.chr09.ver1.0.g113390", "VITVvi-vPixieFPS01-v1.0.Hap2.chr14.ver1.0.g421480","VITVvi-vPixieFPS01-v1.0.Hap2.chr18.ver1.0.g471290"),
+    Meristem = c("VITVvi-vPixieFPS01-v1.0.Hap1.chr11.ver1.0.g137680", "VITVvi-vPixieFPS01-v1.0.Hap2.chr08.ver1.0.g352640"),
+
+   Trichoblast = c("VITVvi-vPixieFPS01-v1.0.Hap2.chr04.ver1.0.g284050", "VITVvi-vPixieFPS01-v1.0.Hap2.chr12.ver1.0.g389850"),
+          Vascular_Parenchyma = c("VITVvi-vPixieFPS01-v1.0.Hap1.chr02.ver1.0.g019450","VITVvi-vPixieFPS01-v1.0.Hap2.chr02.ver1.0.g265220","VITVvi-vPixieFPS01-v1.0.Hap2.chr18.ver1.0.g460900"),
+
+     Pericycle = c("VITVvi-vPixieFPS01-v1.0.Hap2.chr05.ver1.0.g295600", "VITVvi-vPixieFPS01-v1.0.Hap1.chr05.ver1.0.g050260"),
+
+
+  Peripheral_Cells = c("VITVvi-vPixieFPS01-v1.0.Hap1.chr14.ver1.0.g171030", "VITVvi-vPixieFPS01-v1.0.Hap2.chr14.ver1.0.g416080"),
+    Columella_Cells = c("VITVvi-vPixieFPS01-v1.0.Hap2.chr07.ver1.0.g323470", "VITVvi-vPixieFPS01-v1.0.Hap1.chr06.ver1.0.g064430"),
+    
+    Phloem_Parenchyma = c("VITVvi-vPixieFPS01-v1.0.Hap1.chr17.ver1.0.g211600","VITVvi-vPixieFPS01-v1.0.Hap1.chr08.ver1.0.g101280","VITVvi-vPixieFPS01-v1.0.Hap2.chr08.ver1.0.g346510"),
+      Developing_Sieve_Elements = c("VITVvi-vPixieFPS01-v1.0.Hap1.chr10.ver1.0.g120750", "VITVvi-vPixieFPS01-v1.0.Hap2.chr10.ver1.0.g366630"),
+      Companion_Cell = c("VITVvi-vPixieFPS01-v1.0.Hap1.chr01.ver1.0.g001560", "VITVvi-vPixieFPS01-v1.0.Hap2.chr17.ver1.0.g459800")
+)
+
+
+seurat_obj$Organ <- factor(
+  seurat_obj$Organ,
+  levels = c("Leaf", "Flower", "Berry", "Stem", "Bud", "Root")
+)
+
+library(Seurat)  
+library(stringr)  
+library(dplyr)
+
+
+all_markers <- list(
+  leaf = leaf_marker_list,
+  flower = flower_marker_list,
+  berry = berry_marker_list,
+  stem = stem_marker_list,
+  bud = bud_marker_list,
+  root = root_marker_list
+)
+
+
+library(Seurat)
+library(stringr)
+library(dplyr)
+library(pheatmap)
+
+make_heatmap <- function(seurat_obj, markers, organ_name) {
+  
+  # Subset organ
+  obj <- subset(seurat_obj, Organ == organ_name)
+  
+  # Fix weird dash
+  markers <- lapply(markers, function(x) gsub("−", "-", x))
+  
+  # Flatten gene list
+  genes <- unique(unlist(markers))
+  
+  # Keep only genes present
+  genes <- genes[genes %in% rownames(obj)]
+  
+  # Set identities
+  Idents(obj) <- "cluster_annotation"
+  
+  # Average expression (pseudobulk)
+  avg <- AverageExpression(obj, features = genes, return.seurat = FALSE)
+  
+  mat <- avg$SCT  # adjust if using RNA instead
+  
+  # Scale per gene (row-wise z-score)
+  mat_scaled <- t(scale(t(mat)))
+  
+  # Remove NA rows
+  mat_scaled <- mat_scaled[complete.cases(mat_scaled), ]
+  
+  return(mat_scaled)
+}
+
+
+leaf_mat   <- make_heatmap(seurat_obj, leaf_marker_list, "Leaf")
+flower_mat <- make_heatmap(seurat_obj, flower_marker_list, "Flower")
+berry_mat  <- make_heatmap(seurat_obj, berry_marker_list, "Berry")
+stem_mat   <- make_heatmap(seurat_obj, stem_marker_list, "Stem")
+bud_mat    <- make_heatmap(seurat_obj, bud_marker_list, "Bud")
+root_mat   <- make_heatmap(seurat_obj, root_marker_list, "Root")
+
+
+
+
+library(Seurat)
+library(stringr)
+library(dplyr)
+library(pheatmap)
+library(gridExtra)
+
+# ------------------------------
+# Function to generate scaled matrix per organ
+# ------------------------------
+make_heatmap <- function(seurat_obj, markers, organ_name) {
+  
+  # Subset organ
+  obj <- subset(seurat_obj, Organ == organ_name)
+  
+  # Flatten gene list
+  genes <- unique(unlist(markers))
+  
+  # Keep only genes present in Seurat
+  genes <- genes[genes %in% rownames(obj)]
+  if(length(genes) == 0) return(NULL)
+  
+  # Set cluster identities
+  Idents(obj) <- "cluster_annotation"
+  
+  # Average expression per cluster (pseudobulk)
+  avg <- AverageExpression(obj, features = genes, return.seurat = FALSE)
+  mat <- avg$SCT  # adjust if using RNA assay
+  
+  # Scale per gene (row-wise z-score)
+  mat_scaled <- t(scale(t(mat)))
+  mat_scaled <- mat_scaled[complete.cases(mat_scaled), ]
+  
+  # Order genes by the cluster where they peak (diagonal pattern)
+  gene_order <- apply(mat_scaled, 1, function(x) which.max(x))
+  mat_scaled <- mat_scaled[order(gene_order), ]
+  
+  # Rename rows to only keep gXXXXXX for heatmap
+  rownames(mat_scaled) <- str_extract(rownames(mat_scaled), "g[0-9]+")
+  
+  return(mat_scaled)
+}
+
+# ------------------------------
+# Function to plot each heatmap
+# ------------------------------
+plot_heatmap <- function(mat, title) {
+  if(is.null(mat) || nrow(mat) == 0) return(NULL)
+  
+  p <- pheatmap(
+    mat,
+    cluster_rows = FALSE,
+    cluster_cols = FALSE,
+    fontsize_row = 4,
+    fontsize_col = 6,
+    main = title,
+    color = colorRampPalette(c("navy", "white", "firebrick3"))(100),
+    border_color = NA,
+    angle_col = 45,          # oblique x-axis labels
+    legend = FALSE,
+    silent = TRUE
+  )
+  
+  return(p$gtable)
+}
+
+# ------------------------------
+# Generate heatmaps for all organs
+# ------------------------------
+organ_list <- list(
+  Leaf = leaf_marker_list,
+  Flower = flower_marker_list,
+  Berry = berry_marker_list,
+  Stem = stem_marker_list,
+  Bud = bud_marker_list,
+  Root = root_marker_list
+)
+
+# Make matrices per organ
+organ_mats <- lapply(names(organ_list), function(org) {
+  make_heatmap(seurat_obj, organ_list[[org]], org)
+})
+names(organ_mats) <- names(organ_list)
+
+# Make grobs for non-empty organs
+grobs <- lapply(names(organ_mats), function(org) {
+  plot_heatmap(organ_mats[[org]], org)
+})
+grobs <- grobs[!sapply(grobs, is.null)]  # remove NULLs if any organ had no markers
+
+# ------------------------------
+# Save all heatmaps into one PDF
+# ------------------------------
+pdf("plots_alevin/Marker_Heatmaps_By_Organ_gXXXXXX.pdf", width = 2, height = 18)
+grid.arrange(grobs = grobs, ncol = 1)
+dev.off()
+
