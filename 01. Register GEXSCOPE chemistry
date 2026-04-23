@@ -1,10 +1,24 @@
 
-## Register chemistry in simpleaf alevin-fry
+
+#remove preprocessed R1 to start again 
+# List of tissue folders
+folders=("FLOWER1" "FLOWER2" "NEWLEAF1" "NEWLEAF2" "OLDLEAF1" "OLDLEAF2" "STEM1" "STEM2" "ROOT1" "ROOT2")
+
+for folder in "${folders[@]}"; do
+    echo "Removing preprocessed files in folder: $folder"
+    # Use the actual path where the folders exist; adjust if needed
+    rm -f "$folder"/*_preprocessed.fastq.gz
+done
+
+
+for folder in "BUD1" "BUD2"; do for file in $(ls ${folder}/*_R1_*.fastq.gz | grep -v preprocessed); do name=$(basename $file .fastq.gz); out="./${folder}/${name}_preprocessed2.fastq.gz"; if [ -f ./${folder}/${name}_preprocessed.fastq.gz ]; then echo "${folder}/${name} already preprocessed, skipping..."; else echo "zcat $file | while read -r header && read -r seq && read -r plus && read -r qual; do bc=\${seq:0:9}\${seq:25:9}\${seq:50:9}; umi=\${seq:60:12}; qc=\${qual:0:9}\${qual:25:9}\${qual:50:9}\${qual:60:12}; echo -e \"\$header\n\$bc\$umi\n+\n\$qc\"; done | gzip > $out"; fi; done; done > commands2.sh; sed -i '/already/d' commands2.sh
+
+
+nohup parallel -j 8 :::: commands2.sh > preprocessR1_2.log 2>&1 &
+
 
 simpleaf chemistry add \
-  --name GEXSCOPE-V2 \
-  --geometry "1{b[1-9,26-34,51-59]u[61-72]x:}2{r:}" \
+  --name GEXSCOPE-V2-preprocessed \
+  --geometry "1{b[27]u[12]}2{r:}" \
   --expected-ori fw
-  #this does not work
-  
-  
+
