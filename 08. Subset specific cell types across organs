@@ -1,0 +1,136 @@
+seurat_obj <- readRDS("./alevin_seurat_clean/AllTissues_SCT.rds")
+
+  seu <- subset(
+    seurat_obj,
+    subset = cluster_annotation == "Companion_Cell"
+  )
+  dim(seu)
+[1] 36344 10778
+DefaultAssay(seu)<-"RNA"
+seu<-JoinLayers(seu)
+
+
+DefaultAssay(seu)<-"RNA"
+seurat_obj<-seu
+  seurat_obj <- SCTransform(object = seurat_obj)
+
+  seurat_obj <- RunPCA(seurat_obj, npcs = 30, verbose = F)
+ElbowPlot(seurat_obj, ndims = 30)   
+  seurat_obj <- FindNeighbors(seurat_obj, dims = 1:30,  k.param = 20)
+  seurat_obj <- FindClusters(seurat_obj, resolution = 1)
+  seurat_obj <- RunUMAP(seurat_obj, dims = 1:30, reduction = "pca")
+    #optimize umap
+seurat_obj <- RunUMAP(
+  seurat_obj, 
+  dims = 1:30, 
+  n.neighbors = 10,   # smaller = more local structure
+  min.dist = 0.01      # smaller = tighter clusters
+)
+  
+  
+ p1<- DimPlot(seurat_obj, reduction = 'umap', group.by = 'SCT_snn_res.1', label=T)
+  p2<- DimPlot(seurat_obj, reduction = 'umap', group.by = 'Tissue_Rep', label=T)
+#no batch effect, no need to integrate
+
+pdf("./plots_alevin/Comp_UMAP_30PCs.pdf", width=10, height=5)
+p1+p2
+dev.off()
+
+
+
+# Extract UMAP coordinates
+umap_coords <- Embeddings(seurat_obj, "umap")
+
+# Optionally add metadata (e.g., cluster, sample, etc.)
+umap_coords <- cbind(umap_coords, seurat_obj@meta.data)
+
+# Save to CSV
+write.csv(umap_coords, file = "./plots_alevin/Comp_UMAP_30PCs_coordinates.csv", row.names = TRUE)
+
+
+saveRDS(seurat_obj, "./alevin_seurat_clean/Comp_SCT.rds")
+
+
+
+Idents(seurat_obj) <- seurat_obj$SCT_snn_res.1
+#find markers
+  DefaultAssay(seurat_obj)<-"RNA"
+seurat_obj <- NormalizeData(seurat_obj)
+Layers(seurat_obj)
+#[1] "counts" "data"
+
+seurat_joined <- JoinLayers(seurat_obj)
+
+#try using wilcoxon test which is more robust to zeros
+all_markers<-FindAllMarkers(seurat_joined,
+                            logfc.threshold = 0.1,
+                            min.pct = 0.05,
+                            only.pos = TRUE,
+                            test.use = 'wilcox')
+
+
+Pixie_ann<-read.delim("VITVvi_vPixieFPS01_v1.0.pseudomolecules.all.functional.txt", header=TRUE)
+# Remove the ".pXX" at the end of each SeqName string
+Pixie_ann$SeqName <- sub("\\.p\\d+$", "", Pixie_ann$SeqName)
+# Replace all hyphens with underscores
+Pixie_ann$SeqName <- gsub("_", "-", Pixie_ann$SeqName)  
+# Step 2: Remove duplicate SeqName entries
+Pixie_ann <- Pixie_ann[!duplicated(Pixie_ann$SeqName), ]
+
+
+colnames(all_markers)[7]<-"SeqName"
+
+all_markers_ann<-merge(all_markers, Pixie_ann, by="SeqName")
+
+
+write.csv(all_markers_ann, "./ClusterAnnotation_alevin/Comp_AllMarkers_res1.csv")
+
+
+
+seurat_obj$Tissue_Group <- dplyr::case_when(
+  grepl("^Green", seurat_obj$Tissue_Rep) ~ "Green_Berry",
+  grepl("^Harvest", seurat_obj$Tissue_Rep) ~ "Harvest_Berry",
+  grepl("^PostHarvest", seurat_obj$Tissue_Rep) ~ "PostHarvest_Berry",
+    grepl("^FLOWER", seurat_obj$Tissue_Rep) ~ "Flower",
+  grepl("^ROOT", seurat_obj$Tissue_Rep) ~ "Root",
+  grepl("^STEM", seurat_obj$Tissue_Rep) ~ "Stem",
+    grepl("^BUD", seurat_obj$Tissue_Rep) ~ "Bud",
+  grepl("^NEWLEAF", seurat_obj$Tissue_Rep) ~ "NewLeaf",
+    grepl("^OLDLEAF", seurat_obj$Tissue_Rep) ~ "OldLeaf",
+  TRUE ~ seurat_obj$Tissue_Rep
+)
+
+
+
+Idents(seurat_obj) <- seurat_obj$Tissue_Group
+#find markers
+  DefaultAssay(seurat_obj)<-"RNA"
+seurat_obj <- NormalizeData(seurat_obj)
+Layers(seurat_obj)
+#[1] "counts" "data"
+
+seurat_joined <- JoinLayers(seurat_obj)
+
+#try using wilcoxon test which is more robust to zeros
+all_markers<-FindAllMarkers(seurat_joined,
+                            logfc.threshold = 0.1,
+                            min.pct = 0.05,
+                            only.pos = TRUE,
+                            test.use = 'wilcox')
+
+
+Pixie_ann<-read.delim("VITVvi_vPixieFPS01_v1.0.pseudomolecules.all.functional.txt", header=TRUE)
+# Remove the ".pXX" at the end of each SeqName string
+Pixie_ann$SeqName <- sub("\\.p\\d+$", "", Pixie_ann$SeqName)
+# Replace all hyphens with underscores
+Pixie_ann$SeqName <- gsub("_", "-", Pixie_ann$SeqName)  
+# Step 2: Remove duplicate SeqName entries
+Pixie_ann <- Pixie_ann[!duplicated(Pixie_ann$SeqName), ]
+
+
+colnames(all_markers)[7]<-"SeqName"
+
+all_markers_ann<-merge(all_markers, Pixie_ann, by="SeqName")
+
+
+write.csv(all_markers_ann, "./ClusterAnnotation_alevin/Comp_AllMarkers_Tissue_res1.csv")
