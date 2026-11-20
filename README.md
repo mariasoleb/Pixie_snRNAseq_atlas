@@ -1,7 +1,8 @@
 
-This GitHub repository is associated with the following pre-print article:
+This GitHub repository is associated with the following article:
 
-Cell-type-specific transcriptional plasticity in a multi-organ atlas reveals organ-independent companion cell regulatory programs in grapevine.
+Bonarota, M.S., Cochetel, N., Figueroa-Balderas, R., Cantù, D.. 2026. Organ context dominates cell identity across a multi-organ single-cell atlas of grapevine. The Plant Journal.
+
 
 ## Table of Contents
 
