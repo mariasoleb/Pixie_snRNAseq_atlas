@@ -1,7 +1,7 @@
 
 This GitHub repository is associated with the following article:
 
-Bonarota, M.S., Cochetel, N., Figueroa-Balderas, R., Cantù, D.. 2026. Organ context dominates cell identity across a multi-organ single-cell atlas of grapevine. The Plant Journal.
+Bonarota, M.S., Cochetel, N., Figueroa-Balderas, R., Cantù, D. 2026. Organ context dominates cell identity across a multi-organ single-cell atlas of grapevine. The Plant Journal.
 
 
 ## Table of Contents
